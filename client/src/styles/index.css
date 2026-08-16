@@ -1,0 +1,54 @@
+@import "./fonts.css";
+@import "./tailwind.css";
+@import "./theme.css";
+@import "./globals.css";
+
+.tailwind .ProseMirror h1,
+.tailwind .newsletter-preview h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: rgb(20 83 45);
+}
+
+.tailwind .ProseMirror h2,
+.tailwind .newsletter-preview h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: rgb(20 83 45);
+}
+
+.tailwind .ProseMirror p,
+.tailwind .newsletter-preview p {
+  margin: 0.75rem 0;
+}
+
+.tailwind .ProseMirror ul,
+.tailwind .newsletter-preview ul {
+  list-style: disc;
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.tailwind .ProseMirror ol,
+.tailwind .newsletter-preview ol {
+  list-style: decimal;
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.tailwind .ProseMirror blockquote,
+.tailwind .newsletter-preview blockquote {
+  border-left: 3px solid rgb(15 118 110);
+  color: rgb(75 85 99);
+  margin: 1rem 0;
+  padding-left: 1rem;
+}
+
+.tailwind .ProseMirror a,
+.tailwind .newsletter-preview a {
+  color: rgb(15 118 110);
+  font-weight: 600;
+  text-decoration: underline;
+}

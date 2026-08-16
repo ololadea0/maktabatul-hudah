@@ -1,0 +1,2 @@
+-- No-op migration.
+-- The category icon column is already added by 20260809000000_add_category_icons_and_book_volumes.

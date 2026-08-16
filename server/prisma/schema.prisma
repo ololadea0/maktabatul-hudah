@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+enum BookProcessingStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum SubscriberStatus {
+  ACTIVE
+  UNSUBSCRIBED
+}
+
+enum NewsletterStatus {
+  DRAFT
+  SENT
+}
+
+model User {
+  id                   String       @id @default(cuid())
+  fullName             String
+  email                String       @unique
+  password             String?
+  provider             AuthProvider @default(LOCAL)
+  googleId             String?      @unique
+  avatar               String?
+  role                 Role         @default(USER)
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  uploadedBooks        Book[]       @relation("BookUploader")
+  readingProgress      ReadingProgress[]
+  savedBooks           SavedBook[]
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  books       Book[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BookCollection {
+  id          String   @id @default(cuid())
+  title       String
+  author      String?
+  description String?
+  language    String?
+  coverImage  String?
+  coverImagePublicId String?
+  books       Book[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([title])
+  @@index([author])
+}
+
+model Book {
+  id              String   @id @default(cuid())
+  title           String
+  slug            String   @unique
+  author          String
+  description     String?
+  about           String?
+  isbn            String?  @unique
+  coverImage      String?
+  coverImagePublicId String?
+  fileUrl         String?
+  filePublicId    String?
+  language        String   @default("English")
+  publisher       String?
+  publicationYear Int?
+  pages           Int?
+  volumeSet       String?
+  volumeNumber    Int?
+  totalVolumes    Int?
+  fileSize        Int?
+  downloads       Int      @default(0)
+  isPublished     Boolean  @default(true)
+  processingStatus BookProcessingStatus @default(PENDING)
+  collectionId   String?
+  categoryId      String
+  collection     BookCollection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  category        Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  uploadedById    String?
+  uploadedBy      User?    @relation("BookUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  readingProgress ReadingProgress[]
+  savedBy         SavedBook[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([collectionId])
+  @@index([uploadedById])
+  @@index([title])
+  @@index([author])
+  @@unique([collectionId, volumeNumber])
+}
+
+model SavedBook {
+  id        String   @id @default(cuid())
+  userId    String
+  bookId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@index([userId])
+  @@index([bookId])
+}
+
+model ReadingProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  bookId      String
+  currentPage Int      @default(1)
+  zoom        Float    @default(1)
+  progress    Float    @default(0)
+  lastReadAt  DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@index([userId])
+  @@index([bookId])
+}
+
+model Subscriber {
+  id        String           @id @default(cuid())
+  email     String           @unique
+  status    SubscriberStatus @default(ACTIVE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Newsletter {
+  id             String           @id @default(cuid())
+  subject        String
+  content        String
+  status         NewsletterStatus @default(DRAFT)
+  sentAt         DateTime?
+  recipientCount Int?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([sentAt])
+}

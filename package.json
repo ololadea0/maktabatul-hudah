@@ -1,0 +1,10 @@
+{
+  "name": "maktabatul-huda-monorepo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm install --prefix client && npm install --prefix server && npm run build --prefix client && npm run prisma:generate --prefix server",
+    "start": "npm start --prefix server",
+    "prisma:deploy": "npm run prisma:deploy --prefix server"
+  }
+}

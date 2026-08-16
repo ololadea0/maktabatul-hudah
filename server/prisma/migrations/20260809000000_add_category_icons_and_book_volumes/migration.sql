@@ -1,0 +1,5 @@
+ALTER TABLE "Category" ADD COLUMN "icon" TEXT;
+
+ALTER TABLE "Book" ADD COLUMN "volumeSet" TEXT;
+ALTER TABLE "Book" ADD COLUMN "volumeNumber" INTEGER;
+ALTER TABLE "Book" ADD COLUMN "totalVolumes" INTEGER;
