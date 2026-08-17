@@ -13,6 +13,10 @@ import {
   MoonStar,
   Book,
   Clock,
+  BookMarked,
+  ShieldCheck,
+  Heart,
+  HeartHandShake,
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "sonner";
@@ -36,6 +40,9 @@ const categoryIcons = {
   "moon-star": { Icon: MoonStar },
   book: { Icon: Book },
   "rotate-ccw-clock": { Icon: Clock },
+  "book-marked": { Icon: BookMarked },
+  "shield-check": { Icon: ShieldCheck },
+  heart: { Icon: Heart },
 };
 
 const getCategoryIconKey = (category) => {
