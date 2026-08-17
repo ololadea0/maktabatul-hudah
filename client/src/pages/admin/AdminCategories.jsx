@@ -43,6 +43,7 @@ const categoryIcons = {
   "book-marked": { Icon: BookMarked },
   "shield-check": { Icon: ShieldCheck },
   heart: { Icon: Heart },
+  "heart-handshake": { Icon: HeartHandshake },
 };
 
 const getCategoryIconKey = (category) => {
