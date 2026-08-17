@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -9,6 +17,7 @@ import {
   PanelTopClose,
   RotateCw,
   Search,
+  SlidersHorizontal,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -52,8 +61,29 @@ export default function BookReader({ bookId, onBack }) {
   const pagePickerRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPagePickerOpen, setIsPagePickerOpen] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [pdfReady, setPdfReady] = useState(false);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const didSetMobileFit = useRef(false);
+
+  useEffect(() => {
+    document.documentElement.classList.add("reader-active");
+    document.body.classList.add("reader-active");
+
+    return () => {
+      document.documentElement.classList.remove("reader-active");
+      document.body.classList.remove("reader-active");
+    };
+  }, []);
+
+  useEffect(() => {
+    if (didSetMobileFit.current || containerSize.width === 0 || containerSize.width >= 640) {
+      return;
+    }
+    didSetMobileFit.current = true;
+    dispatch(setFitMode("page"));
+  }, [containerSize.width, dispatch]);
 
   const progressPercent = useMemo(() => {
     if (!reader.totalPages) return 0;
@@ -181,18 +211,26 @@ export default function BookReader({ bookId, onBack }) {
     return () => window.clearTimeout(timeout);
   }, [loadReader, reader.expiresAt]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return undefined;
 
     const updateContainerSize = () => {
-      setContainerSize({
-        width: Math.max(0, viewport.clientWidth),
-        height: Math.max(0, viewport.clientHeight),
-      });
+      const visualViewport = window.visualViewport;
+      const width = Math.max(
+        0,
+        Math.min(
+          viewport.clientWidth,
+          visualViewport?.width ?? viewport.clientWidth,
+        ),
+      );
+      const height = Math.max(0, viewport.clientHeight);
+
+      setContainerSize({ width, height });
     };
 
     updateContainerSize();
+    requestAnimationFrame(updateContainerSize);
 
     const observer = new ResizeObserver(() => {
       updateContainerSize();
@@ -201,13 +239,15 @@ export default function BookReader({ bookId, onBack }) {
 
     window.addEventListener("resize", updateContainerSize);
     window.visualViewport?.addEventListener("resize", updateContainerSize);
+    window.visualViewport?.addEventListener("scroll", updateContainerSize);
 
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", updateContainerSize);
       window.visualViewport?.removeEventListener("resize", updateContainerSize);
+      window.visualViewport?.removeEventListener("scroll", updateContainerSize);
     };
-  }, [pdfReady, reader.pdfUrl]);
+  }, [reader.loading, reader.error, reader.pdfUrl, pdfReady]);
 
   const renderPage = useCallback(async () => {
     if (
@@ -455,23 +495,34 @@ export default function BookReader({ bookId, onBack }) {
     !reader.error &&
     ((reader.loading && !reader.pdfUrl) || (reader.pdfUrl && !pdfReady))
   ) {
-    return (
-      <main className="fixed inset-0 z-50 flex h-dvh max-h-dvh w-full items-center justify-center bg-neutral-950">
+    return createPortal(
+      <main
+        className="reader-shell fixed inset-0 z-[100] flex items-center justify-center bg-neutral-950"
+        style={{ height: "var(--reader-height, 100dvh)" }}
+      >
         <ReaderLoading label="Loading book..." />
-      </main>
+      </main>,
+      document.body,
     );
   }
 
   if (reader.error && !reader.pdfUrl) {
-    return <ReaderNotice message={reader.error} onBack={onBack} />;
+    return createPortal(
+      <ReaderNotice message={reader.error} onBack={onBack} />,
+      document.body,
+    );
   }
 
-  return (
+  return createPortal(
     <main
-      className="fixed inset-0 z-50 grid h-dvh max-h-dvh w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-neutral-950 text-stone-100"
+      className="reader-shell fixed inset-0 z-[100] grid w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-neutral-950 text-stone-100"
       style={{
+        height: "var(--reader-height, 100dvh)",
+        maxHeight: "var(--reader-height, 100dvh)",
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
       }}
     >
       <header className="z-30 shrink-0 border-b border-white/10 bg-neutral-950/95 backdrop-blur">
@@ -510,19 +561,59 @@ export default function BookReader({ bookId, onBack }) {
 
           <button
             type="button"
-            onClick={toggleFullscreen}
+            onClick={() => {
+              setMobileSearchOpen((open) => !open);
+              setMobileToolsOpen(false);
+            }}
             className="inline-flex h-10 w-10 items-center justify-center rounded-md text-stone-200 transition hover:bg-white/10 sm:hidden"
-            aria-label="Fullscreen"
-            title="Fullscreen"
+            aria-label="Search"
+            title="Search"
           >
-            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+            <Search size={18} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMobileToolsOpen((open) => !open);
+              setMobileSearchOpen(false);
+            }}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md text-stone-200 transition hover:bg-white/10 sm:hidden"
+            aria-label="Reader tools"
+            title="Reader tools"
+          >
+            <SlidersHorizontal size={18} />
           </button>
         </div>
+
+        {mobileSearchOpen ? (
+          <form
+            onSubmit={(event) => {
+              searchPdf(event);
+              setMobileSearchOpen(false);
+            }}
+            className="flex items-center gap-2 border-t border-white/10 bg-neutral-950 px-3 py-2 sm:hidden"
+          >
+            <Search size={15} className="shrink-0 text-stone-400" />
+            <input
+              value={reader.searchQuery}
+              onChange={(event) => dispatch(setSearchQuery(event.target.value))}
+              placeholder="Search inside PDF"
+              className="h-9 min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-stone-500"
+            />
+            <button
+              type="submit"
+              className="shrink-0 rounded-md bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white"
+            >
+              Go
+            </button>
+          </form>
+        ) : null}
       </header>
 
       <section
         ref={viewportRef}
-        className="relative min-h-0 min-w-0 overflow-auto overscroll-contain px-2 py-2 sm:px-4 sm:py-4"
+        className="relative min-h-0 min-w-0 overflow-auto overscroll-contain px-1 py-1 sm:px-4 sm:py-4"
         onContextMenu={(event) => event.preventDefault()}
         onDragStart={(event) => event.preventDefault()}
       >
@@ -642,7 +733,9 @@ export default function BookReader({ bookId, onBack }) {
             </IconButton>
           </div>
 
-          <div className="flex items-center justify-center gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div
+            className="hidden items-center justify-center gap-1 overflow-x-auto pb-0.5 sm:flex [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
             <IconButton
               label="Zoom out"
               disabled={reader.zoom <= minZoom}
@@ -688,26 +781,55 @@ export default function BookReader({ bookId, onBack }) {
             </IconButton>
           </div>
 
-          <form
-            onSubmit={searchPdf}
-            className="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 sm:hidden"
-          >
-            <Search size={15} className="text-stone-400" />
-            <input
-              value={reader.searchQuery}
-              onChange={(event) => dispatch(setSearchQuery(event.target.value))}
-              placeholder="Search inside PDF"
-              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-stone-500"
-            />
-          </form>
+          {mobileToolsOpen ? (
+            <div className="grid grid-cols-4 gap-2 rounded-lg border border-white/10 bg-white/5 p-2 sm:hidden">
+              <IconButton
+                label="Zoom out"
+                disabled={reader.zoom <= minZoom}
+                onClick={() => dispatch(setZoom(reader.zoom - zoomStep))}
+              >
+                <ZoomOut size={18} />
+              </IconButton>
+              <IconButton
+                label="Fit page"
+                active={reader.fitMode === "page"}
+                onClick={() => dispatch(setFitMode("page"))}
+              >
+                <Minimize size={18} />
+              </IconButton>
+              <IconButton
+                label="Fit width"
+                active={reader.fitMode === "width"}
+                onClick={() => dispatch(setFitMode("width"))}
+              >
+                <PanelTopClose size={18} />
+              </IconButton>
+              <IconButton
+                label="Zoom in"
+                disabled={reader.zoom >= maxZoom}
+                onClick={() => dispatch(setZoom(reader.zoom + zoomStep))}
+              >
+                <ZoomIn size={18} />
+              </IconButton>
+              <IconButton
+                label="Rotate"
+                onClick={() => dispatch(setRotation((reader.rotation + 90) % 360))}
+              >
+                <RotateCw size={18} />
+              </IconButton>
+              <IconButton label="Fullscreen" onClick={toggleFullscreen}>
+                {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+              </IconButton>
+            </div>
+          ) : null}
 
-          <div className="h-2 overflow-hidden rounded-full bg-white/10">
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/10 sm:h-2">
             <div
               className="h-full rounded-full bg-teal-500 transition-[width]"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
-          <div className="flex items-center justify-between text-xs text-stone-500">
+          <div className="hidden items-center justify-between text-xs text-stone-500 sm:flex">
             <span>{Math.round(reader.zoom * 100)}%</span>
             <span>
               {reader.searchLoading
@@ -719,7 +841,8 @@ export default function BookReader({ bookId, onBack }) {
           </div>
         </div>
       </footer>
-    </main>
+    </main>,
+    document.body,
   );
 }
 
@@ -777,7 +900,15 @@ function Watermark({ text }) {
 
 function ReaderNotice({ message, onBack }) {
   return (
-    <main className="fixed inset-0 z-50 flex h-dvh max-h-dvh w-full items-center justify-center bg-neutral-950 px-4 text-white">
+    <main
+      className="reader-shell fixed inset-0 z-[100] flex w-full items-center justify-center bg-neutral-950 px-4 text-white"
+      style={{
+        height: "var(--reader-height, 100dvh)",
+        maxHeight: "var(--reader-height, 100dvh)",
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
       <section className="w-full max-w-md rounded-lg border border-white/10 bg-white/5 p-6 text-center">
         <h1 className="text-lg font-bold">Reader unavailable</h1>
         <p className="mt-2 text-sm leading-6 text-stone-400">{message}</p>

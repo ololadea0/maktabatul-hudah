@@ -2,6 +2,26 @@ html {
   scroll-behavior: smooth;
 }
 
+html.reader-active,
+body.reader-active {
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  position: fixed;
+  inset: 0;
+  touch-action: manipulation;
+}
+
+.reader-shell {
+  --reader-height: 100vh;
+  --reader-height: 100dvh;
+  --reader-height: 100svh;
+}
+
+#root {
+  min-height: 100%;
+}
+
 .scroll-reveal {
   opacity: 0;
   transform: translateY(34px) scale(0.985);
