@@ -12,4 +12,17 @@ const api = axios.create({
   },
 });
 
+// Let the browser set multipart boundaries; the default JSON header breaks file uploads.
+api.interceptors.request.use((config) => {
+  if (config.data instanceof FormData) {
+    if (typeof config.headers?.delete === "function") {
+      config.headers.delete("Content-Type");
+    } else {
+      delete config.headers["Content-Type"];
+    }
+  }
+
+  return config;
+});
+
 export default api;

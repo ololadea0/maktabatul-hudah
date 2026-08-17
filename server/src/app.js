@@ -78,6 +78,30 @@ app.get('/health/db', async (_req, res, next) => {
   }
 });
 
+app.get('/health/config', (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Configuration status',
+    data: {
+      nodeEnv: env.nodeEnv,
+      frontendUrls: env.frontendUrls,
+      configured: {
+        database: Boolean(env.databaseUrl),
+        jwtSecret: Boolean(env.jwtSecret),
+        cloudinary: Boolean(
+          env.cloudinaryCloudName &&
+            env.cloudinaryApiKey &&
+            env.cloudinaryApiSecret,
+        ),
+        supabase: Boolean(env.supabaseUrl && env.supabaseServiceRoleKey),
+        supabaseBucket: env.supabaseStorageBucket,
+        resend: Boolean(env.resendApiKey),
+        googleOAuth: Boolean(env.googleClientId && env.googleClientSecret),
+      },
+    },
+  });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/books', bookRoutes);

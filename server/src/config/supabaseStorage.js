@@ -2,7 +2,8 @@ import env from './env.js';
 import AppError from '../utils/appError.js';
 
 const getSupabaseConfig = () => {
-  if (!env.supabaseUrl || !env.supabaseServiceRoleKey) {
+  if (!env.supabaseUrl || !env.supabaseServiceRoleKey)
+  {
     throw new AppError('Supabase storage is not configured', 500);
   }
 
@@ -40,7 +41,8 @@ export const uploadObject = async ({ path, buffer, contentType }) => {
     },
   );
 
-  if (!response.ok) {
+  if (!response.ok)
+  {
     const message = await response.text();
     throw new AppError(message || 'Failed to upload PDF to Supabase', 502);
   }
@@ -60,7 +62,8 @@ export const downloadObject = async (path) => {
     },
   );
 
-  if (!response.ok) {
+  if (!response.ok)
+  {
     const message = await response.text();
     throw new AppError(message || 'Failed to download object from Supabase', 502);
   }
@@ -78,7 +81,8 @@ export const getObjectMetadata = async (path) => {
     },
   );
 
-  if (!response.ok) {
+  if (!response.ok)
+  {
     const message = await response.text();
     throw new AppError(message || 'Failed to read object metadata from Supabase', 502);
   }
@@ -103,7 +107,8 @@ export const fetchObjectRange = async ({ path, range }) => {
     },
   );
 
-  if (!response.ok && response.status !== 206) {
+  if (!response.ok && response.status !== 206)
+  {
     const message = await response.text();
     throw new AppError(message || 'Failed to stream object from Supabase', 502);
   }
@@ -112,7 +117,8 @@ export const fetchObjectRange = async ({ path, range }) => {
 };
 
 export const createSignedObjectUrl = async (path) => {
-  if (!path) {
+  if (!path)
+  {
     return null;
   }
 
@@ -131,7 +137,8 @@ export const createSignedObjectUrl = async (path) => {
     },
   );
 
-  if (!response.ok) {
+  if (!response.ok)
+  {
     const message = await response.text();
     throw new AppError(message || 'Failed to create signed PDF URL', 502);
   }
@@ -139,11 +146,13 @@ export const createSignedObjectUrl = async (path) => {
   const data = await response.json();
   const signedUrl = data.signedURL || data.signedUrl;
 
-  if (!signedUrl) {
+  if (!signedUrl)
+  {
     throw new AppError('Supabase did not return a signed PDF URL', 502);
   }
 
-  if (signedUrl.startsWith('http')) {
+  if (signedUrl.startsWith('http'))
+  {
     return signedUrl;
   }
 
@@ -151,7 +160,8 @@ export const createSignedObjectUrl = async (path) => {
 };
 
 export const deleteObject = async (path) => {
-  if (!path) {
+  if (!path)
+  {
     return;
   }
 
@@ -166,7 +176,8 @@ export const deleteObject = async (path) => {
     }),
   });
 
-  if (!response.ok) {
+  if (!response.ok)
+  {
     const message = await response.text();
     throw new AppError(message || 'Failed to delete PDF from Supabase', 502);
   }
