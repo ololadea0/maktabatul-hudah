@@ -7,7 +7,7 @@ import {
 } from '../config/supabaseStorage.js';
 import AppError from '../utils/appError.js';
 import slugify from '../utils/slugify.js';
-import { getPdfPageCount } from './pdfService.js';
+import { resolvePdfPageCount } from './pdfService.js';
 
 const bookSelect = {
   id: true,
@@ -701,18 +701,34 @@ export const createBook = async (payload, files, uploadedById) => {
   });
 
   if (files?.pdf?.[0]) {
-    const uploadedPdf = await uploadPdfToSupabase(files.pdf[0], book.id);
-    const pageCount = await getPdfPageCount(files.pdf[0].buffer);
-    await prisma.book.update({
-      where: { id: book.id },
-      data: {
-        fileUrl: uploadedPdf.pdfUrl,
-        filePublicId: uploadedPdf.filePublicId,
-        fileSize: uploadedPdf.fileSize,
-        pages: pageCount,
-        processingStatus: 'READY',
-      },
-    });
+    try {
+      const uploadedPdf = await uploadPdfToSupabase(files.pdf[0], book.id);
+      const manualPages = data.pages ?? cleanNullableInt(payload.pages);
+      const pageCount = await resolvePdfPageCount(files.pdf[0].buffer, manualPages);
+
+      if (pageCount === null) {
+        console.warn(
+          `Could not detect page count for book ${book.id}; upload completed without pages.`,
+        );
+      }
+
+      await prisma.book.update({
+        where: { id: book.id },
+        data: {
+          fileUrl: uploadedPdf.pdfUrl,
+          filePublicId: uploadedPdf.filePublicId,
+          fileSize: uploadedPdf.fileSize,
+          pages: pageCount,
+          processingStatus: 'READY',
+        },
+      });
+    } catch (error) {
+      await prisma.book.update({
+        where: { id: book.id },
+        data: { processingStatus: 'FAILED' },
+      });
+      throw error;
+    }
   }
 
   const createdBook = await prisma.book.findUnique({
@@ -778,7 +794,21 @@ export const updateBook = async (id, payload, files) => {
   Object.assign(data, buildBookData(payload, { ...uploadedCover, ...uploadedPdf }, existingBook));
 
   if (files?.pdf?.[0]) {
-    data.pages = await getPdfPageCount(files.pdf[0].buffer);
+    const manualPages =
+      data.pages !== undefined ? data.pages : existingBook.pages;
+    const pageCount = await resolvePdfPageCount(files.pdf[0].buffer, manualPages);
+
+    if (pageCount !== null) {
+      data.pages = pageCount;
+    } else {
+      console.warn(
+        `Could not detect page count for book ${id}; upload completed without pages.`,
+      );
+      if (data.pages === undefined) {
+        data.pages = null;
+      }
+    }
+
     data.processingStatus = 'READY';
   }
 

@@ -452,6 +452,9 @@ export default function AdminUpload() {
                 className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                 style={{ borderColor: "rgba(15, 118, 110, 0.2)" }}
               />
+              <p className="mt-1 text-[11px] text-gray-400">
+                Optional. Used as a fallback if the PDF page count cannot be detected automatically.
+              </p>
             </div>
 
             <div className="sm:col-span-2">
