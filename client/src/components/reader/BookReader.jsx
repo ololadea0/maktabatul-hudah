@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Maximize,
   Minimize,
-  MoreVertical,
   PanelTopClose,
   RotateCw,
   Search,
@@ -42,6 +41,7 @@ export default function BookReader({ bookId, onBack }) {
   const dispatch = useDispatch();
   const reader = useSelector(selectReader);
   const canvasRef = useRef(null);
+  const viewportRef = useRef(null);
   const pageShellRef = useRef(null);
   const pageInputRef = useRef(null);
   const pdfDocumentRef = useRef(null);
@@ -57,7 +57,10 @@ export default function BookReader({ bookId, onBack }) {
 
   const progressPercent = useMemo(() => {
     if (!reader.totalPages) return 0;
-    return Math.min(100, Math.max(0, (reader.currentPage / reader.totalPages) * 100));
+    return Math.min(
+      100,
+      Math.max(0, (reader.currentPage / reader.totalPages) * 100),
+    );
   }, [reader.currentPage, reader.totalPages]);
 
   const quickPages = useMemo(() => {
@@ -73,7 +76,9 @@ export default function BookReader({ bookId, onBack }) {
     ]);
 
     return [...pages]
-      .filter((pageNumber) => pageNumber >= 1 && pageNumber <= reader.totalPages)
+      .filter(
+        (pageNumber) => pageNumber >= 1 && pageNumber <= reader.totalPages,
+      )
       .sort((first, second) => first - second);
   }, [reader.currentPage, reader.totalPages]);
 
@@ -87,7 +92,11 @@ export default function BookReader({ bookId, onBack }) {
 
   const goToPage = useCallback(
     (pageNumber) => {
-      if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > reader.totalPages) {
+      if (
+        !Number.isInteger(pageNumber) ||
+        pageNumber < 1 ||
+        pageNumber > reader.totalPages
+      ) {
         toast.error("Choose a valid page number.");
         return;
       }
@@ -135,10 +144,10 @@ export default function BookReader({ bookId, onBack }) {
       loadingTaskRef.current = loadingTask;
 
       const pdfDocument = await loadingTask.promise;
-        if (cancelled) return;
-        pdfDocumentRef.current = pdfDocument;
-        dispatch(setTotalPages(pdfDocument.numPages));
-        setPdfReady(true);
+      if (cancelled) return;
+      pdfDocumentRef.current = pdfDocument;
+      dispatch(setTotalPages(pdfDocument.numPages));
+      setPdfReady(true);
     };
 
     loadPdf().catch(async () => {
@@ -146,7 +155,11 @@ export default function BookReader({ bookId, onBack }) {
       setPdfReady(false);
       const refreshed = await loadReader();
       if (!refreshed?.pdfUrl && !refreshed?.signedUrl) {
-        dispatch(setReaderError("Unable to open this PDF. The file may be corrupted or unavailable."));
+        dispatch(
+          setReaderError(
+            "Unable to open this PDF. The file may be corrupted or unavailable.",
+          ),
+        );
       }
     });
 
@@ -158,7 +171,10 @@ export default function BookReader({ bookId, onBack }) {
 
   useEffect(() => {
     if (!reader.expiresAt) return undefined;
-    const refreshIn = Math.max(new Date(reader.expiresAt).getTime() - Date.now() - 30000, 15000);
+    const refreshIn = Math.max(
+      new Date(reader.expiresAt).getTime() - Date.now() - 30000,
+      15000,
+    );
     const timeout = window.setTimeout(() => {
       loadReader();
     }, refreshIn);
@@ -166,20 +182,41 @@ export default function BookReader({ bookId, onBack }) {
   }, [loadReader, reader.expiresAt]);
 
   useEffect(() => {
-    if (!pageShellRef.current) return undefined;
-    const observer = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect;
+    const viewport = viewportRef.current;
+    if (!viewport) return undefined;
+
+    const updateContainerSize = () => {
       setContainerSize({
-        width: Math.max(0, width),
-        height: Math.max(0, height),
+        width: Math.max(0, viewport.clientWidth),
+        height: Math.max(0, viewport.clientHeight),
       });
+    };
+
+    updateContainerSize();
+
+    const observer = new ResizeObserver(() => {
+      updateContainerSize();
     });
-    observer.observe(pageShellRef.current);
-    return () => observer.disconnect();
+    observer.observe(viewport);
+
+    window.addEventListener("resize", updateContainerSize);
+    window.visualViewport?.addEventListener("resize", updateContainerSize);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateContainerSize);
+      window.visualViewport?.removeEventListener("resize", updateContainerSize);
+    };
   }, [pdfReady, reader.pdfUrl]);
 
   const renderPage = useCallback(async () => {
-    if (!pdfDocumentRef.current || !canvasRef.current || !containerSize.width || !containerSize.height) return;
+    if (
+      !pdfDocumentRef.current ||
+      !canvasRef.current ||
+      !containerSize.width ||
+      !containerSize.height
+    )
+      return;
 
     dispatch(setRendering(true));
     renderTaskRef.current?.cancel();
@@ -187,11 +224,21 @@ export default function BookReader({ bookId, onBack }) {
 
     try {
       const page = await pdfDocumentRef.current.getPage(reader.currentPage);
-      const baseViewport = page.getViewport({ scale: 1, rotation: reader.rotation });
-      const horizontalPadding = window.innerWidth < 640 ? readerGutter * 2 : readerGutter * 4;
-      const verticalPadding = readerGutter * 2;
-      const availableWidth = Math.max(1, containerSize.width - horizontalPadding);
-      const availableHeight = Math.max(1, containerSize.height - verticalPadding);
+      const baseViewport = page.getViewport({
+        scale: 1,
+        rotation: reader.rotation,
+      });
+      const horizontalPadding =
+        containerSize.width < 640 ? readerGutter : readerGutter * 2;
+      const verticalPadding = readerGutter;
+      const availableWidth = Math.max(
+        1,
+        containerSize.width - horizontalPadding,
+      );
+      const availableHeight = Math.max(
+        1,
+        containerSize.height - verticalPadding,
+      );
       const widthScale = availableWidth / baseViewport.width;
       const heightScale = availableHeight / baseViewport.height;
       const fitScale =
@@ -208,8 +255,14 @@ export default function BookReader({ bookId, onBack }) {
 
       canvas.width = Math.floor(viewport.width * outputScale);
       canvas.height = Math.floor(viewport.height * outputScale);
-      canvas.style.width = `${Math.floor(viewport.width)}px`;
-      canvas.style.height = `${Math.floor(viewport.height)}px`;
+      const displayWidth = Math.min(Math.floor(viewport.width), availableWidth);
+      const displayHeight = Math.min(
+        Math.floor(viewport.height),
+        Math.floor((displayWidth / viewport.width) * viewport.height),
+      );
+      canvas.style.width = `${displayWidth}px`;
+      canvas.style.height = `${displayHeight}px`;
+      canvas.style.maxWidth = "100%";
       context.save();
       context.fillStyle = "#ffffff";
       context.fillRect(0, 0, canvas.width, canvas.height);
@@ -226,7 +279,11 @@ export default function BookReader({ bookId, onBack }) {
       page.cleanup?.();
     } catch (error) {
       if (error?.name !== "RenderingCancelledException") {
-        dispatch(setReaderError("The page could not be rendered. Refreshing the secure file link..."));
+        dispatch(
+          setReaderError(
+            "The page could not be rendered. Refreshing the secure file link...",
+          ),
+        );
         await loadReader();
       }
     } finally {
@@ -254,7 +311,9 @@ export default function BookReader({ bookId, onBack }) {
   useEffect(() => {
     if (!pdfDocumentRef.current || !pdfReady) return;
     [reader.currentPage - 1, reader.currentPage + 1]
-      .filter((pageNumber) => pageNumber >= 1 && pageNumber <= reader.totalPages)
+      .filter(
+        (pageNumber) => pageNumber >= 1 && pageNumber <= reader.totalPages,
+      )
       .forEach((pageNumber) => {
         pdfDocumentRef.current.getPage(pageNumber).catch(() => {});
       });
@@ -323,9 +382,11 @@ export default function BookReader({ bookId, onBack }) {
   }, [dispatch, goToPage, reader.currentPage, reader.zoom]);
 
   useEffect(() => {
-    const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    const onFullscreenChange = () =>
+      setIsFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener("fullscreenchange", onFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
 
   useEffect(() => {
@@ -353,10 +414,17 @@ export default function BookReader({ bookId, onBack }) {
     dispatch(setSearchLoading(true));
     try {
       const results = [];
-      for (let pageNumber = 1; pageNumber <= pdfDocumentRef.current.numPages; pageNumber += 1) {
+      for (
+        let pageNumber = 1;
+        pageNumber <= pdfDocumentRef.current.numPages;
+        pageNumber += 1
+      ) {
         const page = await pdfDocumentRef.current.getPage(pageNumber);
         const text = await page.getTextContent();
-        const pageText = text.items.map((item) => item.str).join(" ").toLowerCase();
+        const pageText = text.items
+          .map((item) => item.str)
+          .join(" ")
+          .toLowerCase();
         page.cleanup?.();
         if (pageText.includes(query)) {
           results.push(pageNumber);
@@ -383,8 +451,15 @@ export default function BookReader({ bookId, onBack }) {
     document.documentElement.requestFullscreen?.();
   };
 
-  if (!reader.error && ((reader.loading && !reader.pdfUrl) || (reader.pdfUrl && !pdfReady))) {
-    return <ReaderLoading label="Loading book..." />;
+  if (
+    !reader.error &&
+    ((reader.loading && !reader.pdfUrl) || (reader.pdfUrl && !pdfReady))
+  ) {
+    return (
+      <main className="fixed inset-0 z-50 flex h-dvh max-h-dvh w-full items-center justify-center bg-neutral-950">
+        <ReaderLoading label="Loading book..." />
+      </main>
+    );
   }
 
   if (reader.error && !reader.pdfUrl) {
@@ -392,9 +467,15 @@ export default function BookReader({ bookId, onBack }) {
   }
 
   return (
-    <main className="grid h-screen grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-neutral-950 text-stone-100">
-      <header className="z-30 border-b border-white/10 bg-neutral-950/95 backdrop-blur">
-        <div className="flex min-h-16 items-center gap-3 px-3 sm:px-5">
+    <main
+      className="fixed inset-0 z-50 grid h-dvh max-h-dvh w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-neutral-950 text-stone-100"
+      style={{
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
+      <header className="z-30 shrink-0 border-b border-white/10 bg-neutral-950/95 backdrop-blur">
+        <div className="flex min-h-14 items-center gap-2 px-3 sm:min-h-16 sm:gap-3 sm:px-5">
           <button
             type="button"
             onClick={onBack}
@@ -409,10 +490,15 @@ export default function BookReader({ bookId, onBack }) {
             <h1 className="truncate text-sm font-bold text-white sm:text-base">
               {reader.book?.title || "Book Reader"}
             </h1>
-            <p className="truncate text-xs text-stone-400">{reader.book?.author || "Maktabatul Huda"}</p>
+            <p className="truncate text-xs text-stone-400">
+              {reader.book?.author || "Maktabatul Huda"}
+            </p>
           </div>
 
-          <form onSubmit={searchPdf} className="hidden w-64 items-center rounded-md border border-white/10 bg-white/5 px-2 sm:flex">
+          <form
+            onSubmit={searchPdf}
+            className="hidden w-64 items-center rounded-md border border-white/10 bg-white/5 px-2 sm:flex"
+          >
             <Search size={15} className="text-stone-400" />
             <input
               value={reader.searchQuery}
@@ -424,24 +510,26 @@ export default function BookReader({ bookId, onBack }) {
 
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md text-stone-200 transition hover:bg-white/10"
-            aria-label="More"
-            title="More"
+            onClick={toggleFullscreen}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md text-stone-200 transition hover:bg-white/10 sm:hidden"
+            aria-label="Fullscreen"
+            title="Fullscreen"
           >
-            <MoreVertical size={19} />
+            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
           </button>
         </div>
       </header>
 
       <section
-        className="relative min-h-0 overflow-auto p-4"
+        ref={viewportRef}
+        className="relative min-h-0 min-w-0 overflow-auto overscroll-contain px-2 py-2 sm:px-4 sm:py-4"
         onContextMenu={(event) => event.preventDefault()}
         onDragStart={(event) => event.preventDefault()}
       >
         <Watermark text={reader.watermark || "Maktabatul Huda"} />
         <div
           ref={pageShellRef}
-          className={`relative flex min-h-full w-full justify-center ${
+          className={`relative flex min-h-full w-full max-w-full justify-center ${
             reader.fitMode === "page" ? "items-center" : "items-start"
           }`}
         >
@@ -452,13 +540,13 @@ export default function BookReader({ bookId, onBack }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -16 }}
               transition={{ duration: 0.18 }}
-              className="relative shrink-0"
+              className="relative max-w-full"
             >
               {reader.rendering ? <PageSkeleton /> : null}
               <canvas
                 ref={canvasRef}
                 draggable="false"
-                className="bg-white shadow-2xl shadow-black/50"
+                className="mx-auto max-w-full bg-white shadow-2xl shadow-black/50"
                 aria-label={`Page ${reader.currentPage}`}
               />
             </motion.div>
@@ -466,37 +554,25 @@ export default function BookReader({ bookId, onBack }) {
         </div>
       </section>
 
-      <footer className="border-t border-white/10 bg-neutral-950/95 px-3 py-2">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <IconButton label="Zoom out" disabled={reader.zoom <= minZoom} onClick={() => dispatch(setZoom(reader.zoom - zoomStep))}>
-              <ZoomOut size={18} />
-            </IconButton>
-            <IconButton label="Fit page" active={reader.fitMode === "page"} onClick={() => dispatch(setFitMode("page"))}>
-              <Minimize size={18} />
-            </IconButton>
-            <IconButton label="Fit width" active={reader.fitMode === "width"} onClick={() => dispatch(setFitMode("width"))}>
-              <PanelTopClose size={18} />
-            </IconButton>
-            <IconButton label="Zoom in" disabled={reader.zoom >= maxZoom} onClick={() => dispatch(setZoom(reader.zoom + zoomStep))}>
-              <ZoomIn size={18} />
-            </IconButton>
-            <IconButton label="Rotate" onClick={() => dispatch(setRotation((reader.rotation + 90) % 360))}>
-              <RotateCw size={18} />
-            </IconButton>
-            <IconButton label="Fullscreen" onClick={toggleFullscreen}>
-              {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-            </IconButton>
-
-            <IconButton label="Previous page" disabled={reader.currentPage <= 1} onClick={() => goToPage(reader.currentPage - 1)}>
+      <footer className="shrink-0 border-t border-white/10 bg-neutral-950/95 px-2 py-2 sm:px-3">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-2">
+          <div className="flex items-center justify-center gap-2">
+            <IconButton
+              label="Previous page"
+              disabled={reader.currentPage <= 1}
+              onClick={() => goToPage(reader.currentPage - 1)}
+            >
               <ChevronLeft size={19} />
             </IconButton>
 
-            <div ref={pagePickerRef} className="relative">
+            <div
+              ref={pagePickerRef}
+              className="relative min-w-0 flex-1 sm:flex-none"
+            >
               <button
                 type="button"
                 onClick={() => setIsPagePickerOpen((isOpen) => !isOpen)}
-                className="flex h-10 min-w-32 items-center justify-center rounded-md border border-white/10 bg-white/5 px-3 text-sm font-semibold text-stone-100 transition hover:bg-white/10"
+                className="flex h-10 w-full min-w-0 items-center justify-center rounded-md border border-white/10 bg-white/5 px-3 text-sm font-semibold text-stone-100 transition hover:bg-white/10 sm:min-w-32 sm:w-auto"
                 aria-expanded={isPagePickerOpen}
                 aria-label="Choose page"
               >
@@ -504,14 +580,18 @@ export default function BookReader({ bookId, onBack }) {
                   key={reader.currentPage}
                   initial={{ y: 8, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
+                  className="truncate"
                 >
                   Page {reader.currentPage} / {reader.totalPages || "-"}
                 </motion.span>
               </button>
 
               {isPagePickerOpen ? (
-                <div className="absolute bottom-12 left-1/2 z-40 w-64 -translate-x-1/2 rounded-lg border border-white/10 bg-neutral-900 p-3 shadow-2xl shadow-black/40">
-                  <form onSubmit={handlePageSubmit} className="flex items-center gap-2">
+                <div className="absolute bottom-12 left-1/2 z-40 w-[min(16rem,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border border-white/10 bg-neutral-900 p-3 shadow-2xl shadow-black/40">
+                  <form
+                    onSubmit={handlePageSubmit}
+                    className="flex items-center gap-2"
+                  >
                     <input
                       key={reader.currentPage}
                       ref={pageInputRef}
@@ -522,7 +602,7 @@ export default function BookReader({ bookId, onBack }) {
                     />
                     <button
                       type="submit"
-                      className="h-9 rounded-md bg-teal-600 px-3 text-sm font-semibold text-white transition hover:bg-teal-500"
+                      className="h-9 shrink-0 rounded-md bg-teal-600 px-3 text-sm font-semibold text-white transition hover:bg-teal-500"
                     >
                       Go
                     </button>
@@ -551,12 +631,67 @@ export default function BookReader({ bookId, onBack }) {
               ) : null}
             </div>
 
-            <IconButton label="Next page" disabled={!reader.totalPages || reader.currentPage >= reader.totalPages} onClick={() => goToPage(reader.currentPage + 1)}>
+            <IconButton
+              label="Next page"
+              disabled={
+                !reader.totalPages || reader.currentPage >= reader.totalPages
+              }
+              onClick={() => goToPage(reader.currentPage + 1)}
+            >
               <ChevronRight size={19} />
             </IconButton>
           </div>
 
-          <form onSubmit={searchPdf} className="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 sm:hidden">
+          <div className="flex items-center justify-center gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <IconButton
+              label="Zoom out"
+              disabled={reader.zoom <= minZoom}
+              onClick={() => dispatch(setZoom(reader.zoom - zoomStep))}
+            >
+              <ZoomOut size={18} />
+            </IconButton>
+            <IconButton
+              label="Fit page"
+              active={reader.fitMode === "page"}
+              onClick={() => dispatch(setFitMode("page"))}
+            >
+              <Minimize size={18} />
+            </IconButton>
+            <IconButton
+              label="Fit width"
+              active={reader.fitMode === "width"}
+              onClick={() => dispatch(setFitMode("width"))}
+            >
+              <PanelTopClose size={18} />
+            </IconButton>
+            <IconButton
+              label="Zoom in"
+              disabled={reader.zoom >= maxZoom}
+              onClick={() => dispatch(setZoom(reader.zoom + zoomStep))}
+            >
+              <ZoomIn size={18} />
+            </IconButton>
+            <IconButton
+              label="Rotate"
+              onClick={() =>
+                dispatch(setRotation((reader.rotation + 90) % 360))
+              }
+            >
+              <RotateCw size={18} />
+            </IconButton>
+            <IconButton
+              label="Fullscreen"
+              onClick={toggleFullscreen}
+              className="hidden sm:inline-flex"
+            >
+              {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+            </IconButton>
+          </div>
+
+          <form
+            onSubmit={searchPdf}
+            className="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 sm:hidden"
+          >
             <Search size={15} className="text-stone-400" />
             <input
               value={reader.searchQuery}
@@ -574,7 +709,13 @@ export default function BookReader({ bookId, onBack }) {
           </div>
           <div className="flex items-center justify-between text-xs text-stone-500">
             <span>{Math.round(reader.zoom * 100)}%</span>
-            <span>{reader.searchLoading ? "Searching..." : reader.searchResults.length ? `${reader.searchResults.length} matches` : `${progressPercent.toFixed(0)}% read`}</span>
+            <span>
+              {reader.searchLoading
+                ? "Searching..."
+                : reader.searchResults.length
+                  ? `${reader.searchResults.length} matches`
+                  : `${progressPercent.toFixed(0)}% read`}
+            </span>
           </div>
         </div>
       </footer>
@@ -582,15 +723,24 @@ export default function BookReader({ bookId, onBack }) {
   );
 }
 
-function IconButton({ active, disabled, label, onClick, children }) {
+function IconButton({
+  active,
+  disabled,
+  label,
+  onClick,
+  children,
+  className = "",
+}) {
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition ${
-        active ? "bg-teal-500 text-white" : "bg-white/5 text-stone-200 hover:bg-white/10"
-      } disabled:cursor-not-allowed disabled:opacity-40`}
+      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition ${
+        active
+          ? "bg-teal-500 text-white"
+          : "bg-white/5 text-stone-200 hover:bg-white/10"
+      } disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
       aria-label={label}
       title={label}
     >
@@ -614,7 +764,10 @@ function Watermark({ text }) {
   return (
     <div className="pointer-events-none absolute inset-0 z-20 grid rotate-[-22deg] grid-cols-2 gap-10 overflow-hidden opacity-[0.07] sm:grid-cols-3">
       {Array.from({ length: 18 }).map((_, index) => (
-        <span key={index} className="whitespace-nowrap text-lg font-bold uppercase text-white">
+        <span
+          key={index}
+          className="whitespace-nowrap text-lg font-bold uppercase text-white"
+        >
           {text}
         </span>
       ))}
@@ -624,7 +777,7 @@ function Watermark({ text }) {
 
 function ReaderNotice({ message, onBack }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-950 px-4 text-white">
+    <main className="fixed inset-0 z-50 flex h-dvh max-h-dvh w-full items-center justify-center bg-neutral-950 px-4 text-white">
       <section className="w-full max-w-md rounded-lg border border-white/10 bg-white/5 p-6 text-center">
         <h1 className="text-lg font-bold">Reader unavailable</h1>
         <p className="mt-2 text-sm leading-6 text-stone-400">{message}</p>
