@@ -2,16 +2,16 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
-  Menu,
-  X,
-  Home,
-  Search,
-  Library,
-  Download,
-  User,
-  LogOut,
+  BookMarked,
   ChevronDown,
+  Home,
   LayoutDashboard,
+  Library,
+  LogOut,
+  Menu,
+  Search,
+  User,
+  X,
 } from "lucide-react";
 import { selectAuth, logout } from "../../features/auth/authSlice.js";
 import { LIBRARY_LOGO_URL, LIBRARY_SHORT_NAME } from "../../config/branding.js";
@@ -49,7 +49,12 @@ function NavBar() {
   };
 
   const isSearchActive =
-    location.pathname === "/books" && location.search.includes("search=");
+    location.pathname === "/books" &&
+    (location.search.includes("focus=search") ||
+      location.search.includes("search="));
+
+  const isSavedActive =
+    location.pathname === "/profile" && location.hash === "#saved-books";
 
   const navLinks = [
     { label: "Home", path: "/" },
@@ -488,20 +493,7 @@ function NavBar() {
             <Home size={24} />
             <span className="text-xs mt-1">Home</span>
           </Link>
-          <button
-            type="button"
-            onClick={() => navigate("/books")}
-            className="flex flex-col items-center justify-center w-full h-full transition-colors"
-            style={{
-              color: isSearchActive ? "rgb(15, 118, 110)" : "rgb(55, 65, 81)",
-              borderTop: isSearchActive
-                ? "3px solid rgb(15, 118, 110)"
-                : "3px solid transparent",
-            }}
-          >
-            <Search size={24} />
-            <span className="text-xs mt-1">Search</span>
-          </button>
+
           <Link
             to="/books"
             className="flex flex-col items-center justify-center w-full h-full transition-colors"
@@ -517,14 +509,19 @@ function NavBar() {
             <Library size={24} />
             <span className="text-xs mt-1">Library</span>
           </Link>
-          <button
-            type="button"
-            onClick={() => navigate("/books")}
-            className="flex flex-col items-center justify-center w-full h-full transition-colors text-gray-700 hover:text-teal-700"
+          <Link
+            to="/profile#saved-books"
+            className="flex flex-col items-center justify-center w-full h-full transition-colors"
+            style={{
+              color: isSavedActive ? "rgb(15, 118, 110)" : "rgb(55, 65, 81)",
+              borderTop: isSavedActive
+                ? "3px solid rgb(15, 118, 110)"
+                : "3px solid transparent",
+            }}
           >
-            <Download size={24} />
-            <span className="text-xs mt-1">Downloads</span>
-          </button>
+            <BookMarked size={24} />
+            <span className="text-xs mt-1">Saved</span>
+          </Link>
           <button
             onClick={isAuthenticated ? handleProfileClick : handleLoginClick}
             className="flex flex-col items-center justify-center w-full h-full transition-colors"

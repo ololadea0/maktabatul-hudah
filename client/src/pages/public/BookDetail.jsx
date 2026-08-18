@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
+  clearSelectedBook,
   downloadBook,
   fetchBookById,
   fetchBookBySlug,
@@ -57,20 +58,20 @@ export default function BookDetail() {
       : null;
   const book = selectedMatches ? selectedBook : seededBook;
 
-  useEffect(() => {
-    let isMounted = true;
+  // Don't immediately clear the selected book on slug change —
+  // keep the current selection until the new book is loaded to avoid
+  // transient null renders that can cause child components to access
+  // properties on a null `book` object.
 
+  useEffect(() => {
     const loadBook = async () => {
       const slugResult = await dispatch(fetchBookBySlug(bookSlug));
-      if (isMounted && fetchBookBySlug.rejected.match(slugResult)) {
+      if (fetchBookBySlug.rejected.match(slugResult)) {
         dispatch(fetchBookById(bookSlug));
       }
     };
 
     loadBook();
-    return () => {
-      isMounted = false;
-    };
   }, [bookSlug, dispatch]);
 
   useEffect(() => {
@@ -84,6 +85,7 @@ export default function BookDetail() {
     const currentId = getBookId(book);
     const categorySlug = getCategorySlug(book);
     return books
+      .filter(Boolean)
       .filter((item) => getBookId(item) !== currentId)
       .sort((first, second) => {
         const firstMatch = getCategorySlug(first) === categorySlug ? 1 : 0;
@@ -123,7 +125,28 @@ export default function BookDetail() {
     }
   };
 
-  if (selectedStatus === "loading" && !book) {
+  if (!book) {
+    if (selectedStatus === "failed") {
+      return (
+        <main
+          className="min-h-screen pb-20 lg:pb-0"
+          style={{ backgroundColor: "rgb(248, 245, 240)" }}
+        >
+          <DetailHeader navigate={navigate} />
+          <div className="mx-auto max-w-7xl px-4 py-8">
+            <div className="rounded-2xl bg-white p-8 text-center shadow-[0_4px_20px_rgba(0,0,0,0.055)]">
+              <h1 className="font-display text-xl font-bold text-secondary">
+                Book not found
+              </h1>
+              <p className="mt-2 text-sm text-gray-500">
+                {error || "This book could not be loaded."}
+              </p>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main
         className="min-h-screen pb-20 lg:pb-0"
@@ -137,28 +160,7 @@ export default function BookDetail() {
     );
   }
 
-  if (!book && selectedStatus === "failed") {
-    return (
-      <main
-        className="min-h-screen pb-20 lg:pb-0"
-        style={{ backgroundColor: "rgb(248, 245, 240)" }}
-      >
-        <DetailHeader navigate={navigate} />
-        <div className="mx-auto max-w-7xl px-4 py-8">
-          <div className="rounded-2xl bg-white p-8 text-center shadow-[0_4px_20px_rgba(0,0,0,0.055)]">
-            <h1 className="font-display text-xl font-bold text-secondary">
-              Book not found
-            </h1>
-            <p className="mt-2 text-sm text-gray-500">
-              {error || "This book could not be loaded."}
-            </p>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  const title = book?.title || "Untitled Book";
+  const title = book.title || "Untitled Book";
   const author = getAuthorName(book);
   const category = getCategoryName(book);
   const pages = book?.pages || book?.pageCount || "-";
@@ -307,7 +309,11 @@ export default function BookDetail() {
                       key={getBookId(relatedBook)}
                       book={relatedBook}
                       index={index}
-                      onClick={() => navigate(getBookPath(relatedBook))}
+                      onClick={() =>
+                        navigate(getBookPath(relatedBook), {
+                          state: { book: relatedBook },
+                        })
+                      }
                     />
                   ))}
                 </div>
@@ -354,6 +360,8 @@ function DetailHeader({ navigate }) {
 }
 
 function LargeBookCover({ book, title, author }) {
+  if (!book) return null;
+
   const color =
     coverColors[Math.abs(String(getBookId(book)).length) % coverColors.length];
 
@@ -453,6 +461,8 @@ function StatCard({ label, value }) {
 }
 
 function RelatedBook({ book, index, onClick }) {
+  if (!book) return null;
+
   const title = book.title || "Untitled Book";
   const author = getAuthorName(book);
   const color = coverColors[index % coverColors.length];

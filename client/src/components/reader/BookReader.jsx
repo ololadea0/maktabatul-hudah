@@ -78,7 +78,11 @@ export default function BookReader({ bookId, onBack }) {
   }, []);
 
   useEffect(() => {
-    if (didSetMobileFit.current || containerSize.width === 0 || containerSize.width >= 640) {
+    if (
+      didSetMobileFit.current ||
+      containerSize.width === 0 ||
+      containerSize.width >= 640
+    ) {
       return;
     }
     didSetMobileFit.current = true;
@@ -498,7 +502,7 @@ export default function BookReader({ bookId, onBack }) {
     return createPortal(
       <main
         className="reader-shell fixed inset-0 z-[100] flex items-center justify-center bg-neutral-950"
-        style={{ height: "var(--reader-height, 100dvh)" }}
+        style={{ height: "var(--reader-height, 100vh)" }}
       >
         <ReaderLoading label="Loading book..." />
       </main>,
@@ -517,8 +521,8 @@ export default function BookReader({ bookId, onBack }) {
     <main
       className="reader-shell fixed inset-0 z-[100] grid w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-neutral-950 text-stone-100"
       style={{
-        height: "var(--reader-height, 100dvh)",
-        maxHeight: "var(--reader-height, 100dvh)",
+        height: "var(--reader-height, 100vh)",
+        maxHeight: "var(--reader-height, 100vh)",
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
         paddingLeft: "env(safe-area-inset-left)",
@@ -733,9 +737,7 @@ export default function BookReader({ bookId, onBack }) {
             </IconButton>
           </div>
 
-          <div
-            className="hidden items-center justify-center gap-1 overflow-x-auto pb-0.5 sm:flex [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
+          <div className="hidden items-center justify-center gap-1 overflow-x-auto pb-0.5 sm:flex [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <IconButton
               label="Zoom out"
               disabled={reader.zoom <= minZoom}
@@ -813,7 +815,9 @@ export default function BookReader({ bookId, onBack }) {
               </IconButton>
               <IconButton
                 label="Rotate"
-                onClick={() => dispatch(setRotation((reader.rotation + 90) % 360))}
+                onClick={() =>
+                  dispatch(setRotation((reader.rotation + 90) % 360))
+                }
               >
                 <RotateCw size={18} />
               </IconButton>
