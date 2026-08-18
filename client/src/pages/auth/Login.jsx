@@ -14,7 +14,8 @@ import { fetchLibraryStats } from "../../features/books/bookSlice.js";
 import { LIBRARY_LOGO_URL, LIBRARY_NAME } from "../../config/branding.js";
 
 const initialForm = {
-  fullName: "",
+  firstName: "",
+  lastName: "",
   email: "",
   password: "",
 };
@@ -93,11 +94,23 @@ function Login() {
       password: form.password,
     };
 
+    // If registering, ensure we have first and last name and combine into fullName
     const action = isForgotPassword
       ? forgotPassword(form.email.trim())
       : isRegistering
-        ? register({ ...payload, fullName: form.fullName.trim() })
+        ? (() => {
+            const first = (form.firstName || "").trim();
+            const last = (form.lastName || "").trim();
+            if (!first || !last) {
+              toast.error("Please enter both first and last name.");
+              return { type: "auth/abort" };
+            }
+            const fullName = `${first} ${last}`.trim();
+            return register({ ...payload, fullName });
+          })()
         : login(payload);
+
+    if (action && action.type === "auth/abort") return;
 
     const result = await dispatch(action);
 
@@ -225,24 +238,44 @@ function Login() {
 
             <form className="space-y-4" onSubmit={handleSubmit}>
               {isRegistering && (
-                <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-gray-700">
-                    Full Name
-                  </span>
-                  <span className="relative block">
-                    <User className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <input
-                      name="fullName"
-                      type="text"
-                      value={form.fullName}
-                      onChange={handleChange}
-                      placeholder="Your full name"
-                      required={isRegistering}
-                      maxLength={100}
-                      className="w-full rounded-2xl border border-gray-200 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-transparent focus:ring-2 focus:ring-primary/25"
-                    />
-                  </span>
-                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-gray-700">
+                      First name
+                    </span>
+                    <span className="relative block">
+                      <User className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      <input
+                        name="firstName"
+                        type="text"
+                        value={form.firstName}
+                        onChange={handleChange}
+                        placeholder="First name"
+                        required={isRegistering}
+                        maxLength={50}
+                        className="w-full rounded-2xl border border-gray-200 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-transparent focus:ring-2 focus:ring-primary/25"
+                      />
+                    </span>
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-gray-700">
+                      Last name
+                    </span>
+                    <span className="relative block">
+                      <input
+                        name="lastName"
+                        type="text"
+                        value={form.lastName}
+                        onChange={handleChange}
+                        placeholder="Last name"
+                        required={isRegistering}
+                        maxLength={50}
+                        className="w-full rounded-2xl border border-gray-200 py-3 pl-4 pr-4 text-sm outline-none transition focus:border-transparent focus:ring-2 focus:ring-primary/25"
+                      />
+                    </span>
+                  </label>
+                </div>
               )}
 
               <label className="block">
