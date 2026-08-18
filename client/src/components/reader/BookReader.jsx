@@ -577,8 +577,16 @@ export default function BookReader({ bookId, onBack }) {
 
   return createPortal(
     <main
-      className="reader-shell fixed inset-0 z-[100] grid w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-neutral-950 text-stone-100"
+      className="reader-shell bg-neutral-950 text-stone-100"
       style={{
+        // Explicit inline layout styles to prevent production CSS purge/ordering issues
+        position: "fixed",
+        inset: 0,
+        zIndex: 99999,
+        display: "grid",
+        width: "100%",
+        gridTemplateRows: "auto minmax(0,1fr) auto",
+        overflow: "hidden",
         height: "var(--reader-height, 100vh)",
         maxHeight: "var(--reader-height, 100vh)",
         paddingTop: "env(safe-area-inset-top)",
