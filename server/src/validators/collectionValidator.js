@@ -34,6 +34,10 @@ export const createCollectionValidator = [
     .trim()
     .isLength({ max: 4000 })
     .withMessage('About must be at most 4000 characters long'),
+  body('totalVolumes')
+    .optional({ nullable: true })
+    .isInt({ min: 1 })
+    .withMessage('Total volumes must be a positive integer'),
   body('language')
     .optional({ nullable: true })
     .trim()

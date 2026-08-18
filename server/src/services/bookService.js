@@ -158,6 +158,7 @@ const ensureCollectionExists = async (collectionId) => {
       title: true,
       author: true,
       coverImage: true,
+      categoryId: true,
     },
   });
 
@@ -692,7 +693,10 @@ export const getBookBySlug = async (slug) => {
 };
 
 export const createBook = async (payload, files, uploadedById) => {
-  await ensureCategoryExists(payload.categoryId);
+  if (payload.categoryId)
+  {
+    await ensureCategoryExists(payload.categoryId);
+  }
   const collection = await ensureCollectionExists(payload.collectionId);
 
   if (collection && !payload.slug)
@@ -706,11 +710,27 @@ export const createBook = async (payload, files, uploadedById) => {
 
   const data = buildBookData(payload);
 
-  // if creating a volume under an existing collection and no author provided,
-  // default the book author to the collection author to avoid schema errors
-  if (!data.author && collection && collection.author)
+  // When creating a volume belonging to a collection, do not duplicate
+  // collection-level common fields on the book. Use collection's author
+  // as the book author and clear book description/about to avoid repetition.
+  if (collection)
   {
-    data.author = collection.author;
+    data.author = collection.author || data.author || 'Unknown Author';
+    // remove duplicated text fields
+    data.description = null;
+    data.about = null;
+    // inherit collection category for volumes
+    if (!data.categoryId && collection?.id)
+    {
+      data.categoryId = collection.categoryId || null;
+    }
+  } else
+  {
+    // if no collection, fallback to collection-independent defaults
+    if (!data.author && collection && collection.author)
+    {
+      data.author = collection.author;
+    }
   }
 
   if (!data.slug)

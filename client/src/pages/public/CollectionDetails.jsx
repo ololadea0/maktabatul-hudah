@@ -400,6 +400,9 @@ function CollectionSidebar({
   const details = [
     ["Total Volumes", volumeCount],
     totalPages ? ["Total Pages", formatNumber(totalPages)] : null,
+    collection.totalVolumes
+      ? ["Planned Volumes", collection.totalVolumes]
+      : null,
     collection.author ? ["Author", collection.author] : null,
     category ? ["Category", category] : null,
     collection.language ? ["Language", collection.language] : null,

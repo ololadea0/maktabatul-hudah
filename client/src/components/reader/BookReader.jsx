@@ -68,12 +68,35 @@ export default function BookReader({ bookId, onBack }) {
   const didSetMobileFit = useRef(false);
 
   useEffect(() => {
-    document.documentElement.classList.add("reader-active");
-    document.body.classList.add("reader-active");
+    // Activate reader mode and lock background scroll using position:fixed
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = {
+      htmlClass: html.className,
+      bodyClass: body.className,
+      bodyPosition: body.style.position,
+      bodyTop: body.style.top,
+      bodyLeft: body.style.left,
+      bodyRight: body.style.right,
+    };
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    html.classList.add("reader-active");
+    body.classList.add("reader-active");
+    // Use fixed positioning to lock background while allowing inner scrolling
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
 
     return () => {
-      document.documentElement.classList.remove("reader-active");
-      document.body.classList.remove("reader-active");
+      html.classList.remove("reader-active");
+      body.classList.remove("reader-active");
+      // restore body styles and scroll position
+      body.style.position = prev.bodyPosition || "";
+      body.style.top = prev.bodyTop || "";
+      body.style.left = prev.bodyLeft || "";
+      body.style.right = prev.bodyRight || "";
+      window.scrollTo(0, scrollY);
     };
   }, []);
 

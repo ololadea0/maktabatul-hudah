@@ -196,7 +196,34 @@ function Home() {
     error: categoryError,
   } = useSelector((state) => state.categories);
 
-  const featuredBooks = useMemo(() => books.slice(0, 4), [books]);
+  // rotate featured books on a time interval (30 minutes) by sorting deterministically
+  const intervalSeed = useMemo(
+    () => Math.floor(Date.now() / (1000 * 60 * 30)),
+    [],
+  );
+
+  const seededKey = (value, seed) => {
+    const str = `${value}-${seed}`;
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 16777619) >>> 0;
+    }
+    return h;
+  };
+
+  const shuffledBooks = useMemo(() => {
+    if (!books || !books.length) return books;
+    return [...books].sort((a, b) => {
+      const aId = a.id || a.slug || a.title || JSON.stringify(a);
+      const bId = b.id || b.slug || b.title || JSON.stringify(b);
+      return seededKey(aId, intervalSeed) - seededKey(bId, intervalSeed);
+    });
+  }, [books, intervalSeed]);
+
+  const featuredBooks = useMemo(
+    () => shuffledBooks.slice(0, 4),
+    [shuffledBooks],
+  );
   const trustedScholars = useMemo(() => buildTrustedScholars(books), [books]);
   const libraryStats = useMemo(
     () => getBookStats(stats, pagination, books, categories),
@@ -205,7 +232,7 @@ function Home() {
 
   useEffect(() => {
     if (bookStatus === "idle") {
-      dispatch(fetchBooks({ limit: 24, isPublished: true }));
+      dispatch(fetchBooks({ limit: 48, isPublished: true }));
     }
 
     if (statsStatus === "idle") {

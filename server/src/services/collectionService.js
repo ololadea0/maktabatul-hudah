@@ -8,6 +8,7 @@ const collectionSelect = {
   author: true,
   description: true,
   about: true,
+  totalVolumes: true,
   language: true,
   coverImage: true,
   coverImagePublicId: true,
@@ -168,6 +169,7 @@ export const createCollection = async (payload, files) => {
       author: payload.author || null,
       description: payload.description || null,
       about: payload.about || null,
+      totalVolumes: payload.totalVolumes ? Number(payload.totalVolumes) : null,
       language: payload.language || null,
       coverImage: uploadedCover.coverImage || payload.coverImage || null,
       coverImagePublicId: uploadedCover.coverImagePublicId || null,
@@ -203,6 +205,12 @@ export const updateCollection = async (id, payload, files) => {
         Object.prototype.hasOwnProperty.call(payload, 'about')
           ? payload.about || null
           : existing.about,
+      totalVolumes:
+        Object.prototype.hasOwnProperty.call(payload, 'totalVolumes')
+          ? payload.totalVolumes
+            ? Number(payload.totalVolumes)
+            : null
+          : existing.totalVolumes,
       language:
         Object.prototype.hasOwnProperty.call(payload, 'language')
           ? payload.language || null
