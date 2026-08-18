@@ -143,7 +143,9 @@ export default function BookReader({ bookId, onBack }) {
       return;
     }
     didSetMobileFit.current = true;
-    dispatch(setFitMode("page"));
+    // For deployed mobile/webview environments prefer width-fit so the
+    // page spans the viewport width and allows vertical scrolling.
+    dispatch(setFitMode("width"));
   }, [containerSize.width, dispatch]);
 
   const progressPercent = useMemo(() => {
