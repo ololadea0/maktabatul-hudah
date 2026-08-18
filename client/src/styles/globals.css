@@ -4,11 +4,9 @@ html {
 
 html.reader-active,
 body.reader-active {
+  /* Keep background from scrolling but avoid forcing fixed positioning
+     which can break inner scrolling on some deployed mobile webviews. */
   overflow: hidden;
-  width: 100%;
-  height: 100%;
-  position: fixed;
-  inset: 0;
   touch-action: manipulation;
 }
 
@@ -16,6 +14,14 @@ body.reader-active {
   --reader-height: 100vh;
   --reader-height: 100dvh;
   --reader-height: 100svh;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure the reader viewport allows touch panning and both-axis scrolling
+   so users can pan horizontally when needed. */
+.reader-shell section {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y pinch-zoom;
 }
 
 #root {

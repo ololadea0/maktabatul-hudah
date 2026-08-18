@@ -77,12 +77,39 @@ export default function BookReader({ bookId, onBack }) {
     };
   }, []);
 
+  // Set a reliable CSS `--reader-height` value from the visual viewport
+  // (or window.innerHeight) so mobile browsers use an explicit pixel height
+  // instead of relying solely on newer viewport units which may behave
+  // differently when deployed inside various webviews.
   useEffect(() => {
-    if (
-      didSetMobileFit.current ||
-      containerSize.width === 0 ||
-      containerSize.width >= 640
-    ) {
+    const setCssReaderHeight = () => {
+      const h = window.visualViewport?.height || window.innerHeight || 0;
+      if (h) {
+        document.documentElement.style.setProperty("--reader-height", `${h}px`);
+      }
+    };
+
+    setCssReaderHeight();
+    window.addEventListener("resize", setCssReaderHeight);
+    window.visualViewport?.addEventListener("resize", setCssReaderHeight);
+    window.visualViewport?.addEventListener("scroll", setCssReaderHeight);
+
+    return () => {
+      window.removeEventListener("resize", setCssReaderHeight);
+      window.visualViewport?.removeEventListener("resize", setCssReaderHeight);
+      window.visualViewport?.removeEventListener("scroll", setCssReaderHeight);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Prefer the measured container width but fall back to the visual viewport
+    // or window width for deployed environments where the ResizeObserver
+    // may not report immediately. This prevents the reader from remaining
+    // in a non-mobile fit mode when the initial measured width is 0.
+    const measuredWidth =
+      containerSize.width || window.visualViewport?.width || window.innerWidth || 0;
+
+    if (didSetMobileFit.current || measuredWidth === 0 || measuredWidth >= 640) {
       return;
     }
     didSetMobileFit.current = true;
@@ -907,8 +934,8 @@ function ReaderNotice({ message, onBack }) {
     <main
       className="reader-shell fixed inset-0 z-[100] flex w-full items-center justify-center bg-neutral-950 px-4 text-white"
       style={{
-        height: "var(--reader-height, 100dvh)",
-        maxHeight: "var(--reader-height, 100dvh)",
+        height: "var(--reader-height, 100vh)",
+        maxHeight: "var(--reader-height, 100vh)",
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
