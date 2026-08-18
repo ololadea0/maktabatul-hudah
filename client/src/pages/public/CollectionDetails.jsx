@@ -213,8 +213,13 @@ function Hero({
               </p>
             ) : null}
             {collection.description ? (
-              <p className="mb-5 max-w-2xl text-sm leading-6 text-white/75">
+              <p className="mb-3 max-w-2xl text-sm leading-6 text-white/75">
                 {collection.description}
+              </p>
+            ) : null}
+            {collection.about ? (
+              <p className="mb-5 max-w-2xl text-sm leading-6 text-white/70">
+                {collection.about}
               </p>
             ) : null}
 

@@ -107,9 +107,16 @@ export default function BookReader({ bookId, onBack }) {
     // may not report immediately. This prevents the reader from remaining
     // in a non-mobile fit mode when the initial measured width is 0.
     const measuredWidth =
-      containerSize.width || window.visualViewport?.width || window.innerWidth || 0;
+      containerSize.width ||
+      window.visualViewport?.width ||
+      window.innerWidth ||
+      0;
 
-    if (didSetMobileFit.current || measuredWidth === 0 || measuredWidth >= 640) {
+    if (
+      didSetMobileFit.current ||
+      measuredWidth === 0 ||
+      measuredWidth >= 640
+    ) {
       return;
     }
     didSetMobileFit.current = true;
@@ -333,7 +340,8 @@ export default function BookReader({ bookId, onBack }) {
       );
       canvas.style.width = `${displayWidth}px`;
       canvas.style.height = `${displayHeight}px`;
-      canvas.style.maxWidth = "100%";
+      canvas.style.maxWidth = "100vw";
+      canvas.style.display = "block";
       context.save();
       context.fillStyle = "#ffffff";
       context.fillRect(0, 0, canvas.width, canvas.height);
@@ -653,7 +661,7 @@ export default function BookReader({ bookId, onBack }) {
           ref={pageShellRef}
           className={`relative flex min-h-full w-full max-w-full justify-center ${
             reader.fitMode === "page" ? "items-center" : "items-start"
-          }`}
+          } overflow-x-auto`}
         >
           <AnimatePresence mode="wait">
             <motion.div

@@ -14,6 +14,28 @@
     <title>Maktabah Huda</title>
   </head>
   <body>
+    <script>
+      (function () {
+        function setReaderHeight() {
+          var h =
+            (window.visualViewport && window.visualViewport.height) ||
+            window.innerHeight ||
+            0;
+          if (h) {
+            document.documentElement.style.setProperty(
+              "--reader-height",
+              h + "px",
+            );
+          }
+        }
+        setReaderHeight();
+        window.addEventListener("resize", setReaderHeight);
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", setReaderHeight);
+          window.visualViewport.addEventListener("scroll", setReaderHeight);
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

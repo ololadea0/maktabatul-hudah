@@ -50,6 +50,7 @@ const bookSelect = {
       title: true,
       author: true,
       coverImage: true,
+      about: true,
     },
   },
   uploadedBy: {
@@ -64,7 +65,8 @@ const bookSelect = {
 const isSupabasePdfPath = (path) => path?.startsWith('books/');
 
 const getBookPdfUrl = async (book) => {
-  if (isSupabasePdfPath(book.filePublicId)) {
+  if (isSupabasePdfPath(book.filePublicId))
+  {
     return createSignedObjectUrl(book.filePublicId);
   }
 
@@ -80,11 +82,13 @@ const normalizeBook = async (book) => ({
 });
 
 const cleanNullableString = (value) => {
-  if (value === undefined) {
+  if (value === undefined)
+  {
     return undefined;
   }
 
-  if (value === null || value === '') {
+  if (value === null || value === '')
+  {
     return null;
   }
 
@@ -92,11 +96,13 @@ const cleanNullableString = (value) => {
 };
 
 const cleanNullableInt = (value) => {
-  if (value === undefined) {
+  if (value === undefined)
+  {
     return undefined;
   }
 
-  if (value === null || value === '') {
+  if (value === null || value === '')
+  {
     return null;
   }
 
@@ -104,19 +110,23 @@ const cleanNullableInt = (value) => {
 };
 
 const cleanOptionalBoolean = (value) => {
-  if (value === undefined) {
+  if (value === undefined)
+  {
     return undefined;
   }
 
-  if (typeof value === 'boolean') {
+  if (typeof value === 'boolean')
+  {
     return value;
   }
 
-  if (value === 'true') {
+  if (value === 'true')
+  {
     return true;
   }
 
-  if (value === 'false') {
+  if (value === 'false')
+  {
     return false;
   }
 
@@ -129,13 +139,15 @@ const ensureCategoryExists = async (categoryId) => {
     select: { id: true },
   });
 
-  if (!category) {
+  if (!category)
+  {
     throw new AppError('Category not found', 404);
   }
 };
 
 const ensureCollectionExists = async (collectionId) => {
-  if (!collectionId) {
+  if (!collectionId)
+  {
     return null;
   }
 
@@ -149,7 +161,8 @@ const ensureCollectionExists = async (collectionId) => {
     },
   });
 
-  if (!collection) {
+  if (!collection)
+  {
     throw new AppError('Collection not found', 404);
   }
 
@@ -157,7 +170,8 @@ const ensureCollectionExists = async (collectionId) => {
 };
 
 const ensureUniqueCollectionVolume = async ({ collectionId, volumeNumber, excludeId }) => {
-  if (!collectionId || !volumeNumber) {
+  if (!collectionId || !volumeNumber)
+  {
     return;
   }
 
@@ -170,7 +184,8 @@ const ensureUniqueCollectionVolume = async ({ collectionId, volumeNumber, exclud
     select: { id: true },
   });
 
-  if (duplicate) {
+  if (duplicate)
+  {
     throw new AppError('This volume number already exists in the collection', 409);
   }
 };
@@ -186,11 +201,13 @@ const ensureUniqueBook = async ({
 }) => {
   const filters = [{ slug }];
 
-  if (isbn) {
+  if (isbn)
+  {
     filters.push({ isbn });
   }
 
-  if (title && author && !volumeNumber) {
+  if (title && author && !volumeNumber)
+  {
     filters.push({
       AND: [
         { title: { equals: title, mode: 'insensitive' } },
@@ -199,7 +216,8 @@ const ensureUniqueBook = async ({
     });
   }
 
-  if (title && author && volumeNumber) {
+  if (title && author && volumeNumber)
+  {
     filters.push({
       AND: [
         { title: { equals: title, mode: 'insensitive' } },
@@ -219,11 +237,13 @@ const ensureUniqueBook = async ({
     },
   });
 
-  if (!duplicate) {
+  if (!duplicate)
+  {
     return;
   }
 
-  if (duplicate.slug === slug) {
+  if (duplicate.slug === slug)
+  {
     throw new AppError('Book slug already exists', 409);
   }
 
@@ -233,7 +253,8 @@ const ensureUniqueBook = async ({
     duplicate.title.toLowerCase() === title.toLowerCase() &&
     duplicate.author.toLowerCase() === author.toLowerCase() &&
     duplicate.volumeNumber === volumeNumber
-  ) {
+  )
+  {
     throw new AppError('This book volume already exists for this author', 409);
   }
 
@@ -243,7 +264,8 @@ const ensureUniqueBook = async ({
     !volumeNumber &&
     duplicate.title.toLowerCase() === title.toLowerCase() &&
     duplicate.author.toLowerCase() === author.toLowerCase()
-  ) {
+  )
+  {
     throw new AppError('Book already exists for this author', 409);
   }
 
@@ -270,7 +292,8 @@ const uploadCoverToCloudinary = (file) =>
         allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
       },
       (error, result) => {
-        if (error) {
+        if (error)
+        {
           reject(error);
           return;
         }
@@ -303,33 +326,39 @@ const uploadPdfToSupabase = async (file, bookId) => {
 };
 
 const getCloudinaryPublicIdFromUrl = (url, resourceType) => {
-  if (!url) {
+  if (!url)
+  {
     return null;
   }
 
-  try {
+  try
+  {
     const { pathname } = new URL(url);
     const segments = pathname.split('/').filter(Boolean);
     const uploadIndex = segments.indexOf('upload');
 
-    if (uploadIndex === -1) {
+    if (uploadIndex === -1)
+    {
       return null;
     }
 
     const publicIdSegments = segments.slice(uploadIndex + 1);
 
-    if (publicIdSegments[0]?.match(/^v\d+$/)) {
+    if (publicIdSegments[0]?.match(/^v\d+$/))
+    {
       publicIdSegments.shift();
     }
 
     const publicId = decodeURIComponent(publicIdSegments.join('/'));
 
-    if (resourceType === 'image') {
+    if (resourceType === 'image')
+    {
       return publicId.replace(/\.[^/.]+$/, '');
     }
 
     return publicId;
-  } catch (_error) {
+  } catch (_error)
+  {
     return null;
   }
 };
@@ -337,7 +366,8 @@ const getCloudinaryPublicIdFromUrl = (url, resourceType) => {
 const deleteCloudinaryFile = async ({ publicId, url, resourceType }) => {
   const nextPublicId = publicId || getCloudinaryPublicIdFromUrl(url, resourceType);
 
-  if (!nextPublicId) {
+  if (!nextPublicId)
+  {
     return;
   }
 
@@ -347,11 +377,13 @@ const deleteCloudinaryFile = async ({ publicId, url, resourceType }) => {
 };
 
 const deletePdfFile = async (book) => {
-  if (!book.filePublicId && !book.fileUrl) {
+  if (!book.filePublicId && !book.fileUrl)
+  {
     return;
   }
 
-  if (isSupabasePdfPath(book.filePublicId)) {
+  if (isSupabasePdfPath(book.filePublicId))
+  {
     await deleteObject(book.filePublicId);
     return;
   }
@@ -381,7 +413,8 @@ const buildBookData = (payload, uploaded = {}, existingBook) => {
   const data = {};
 
   const setIfPresent = (field, value) => {
-    if (value !== undefined) {
+    if (value !== undefined)
+    {
       data[field] = value;
     }
   };
@@ -412,10 +445,10 @@ const buildBookData = (payload, uploaded = {}, existingBook) => {
     cleanNullableInt(payload.volumeNumber) ?? existingBook?.volumeNumber;
   const generatedSlug = titleForSlug
     ? slugify(
-        volumeNumberForSlug
-          ? `${titleForSlug} volume ${volumeNumberForSlug}`
-          : titleForSlug,
-      )
+      volumeNumberForSlug
+        ? `${titleForSlug} volume ${volumeNumberForSlug}`
+        : titleForSlug,
+    )
     : undefined;
   const nextSlug = payload.slug || (payload.title || payload.volumeNumber ? generatedSlug : existingBook?.slug);
   setIfPresent('slug', nextSlug || generatedSlug);
@@ -441,13 +474,13 @@ export const getBooks = async ({
   const where = {
     ...(search
       ? {
-          OR: [
-            { title: { contains: search, mode: 'insensitive' } },
-            { author: { contains: search, mode: 'insensitive' } },
-            { description: { contains: search, mode: 'insensitive' } },
-            { isbn: { contains: search, mode: 'insensitive' } },
-          ],
-        }
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { author: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+          { isbn: { contains: search, mode: 'insensitive' } },
+        ],
+      }
       : {}),
     ...(categoryId ? { categoryId } : {}),
     ...(categorySlug ? { category: { is: { slug: categorySlug } } } : {}),
@@ -458,7 +491,8 @@ export const getBooks = async ({
       : {}),
   };
 
-  if (!includeVolumes) {
+  if (!includeVolumes)
+  {
     const bookWhere = {
       ...where,
       collectionId: null,
@@ -466,22 +500,22 @@ export const getBooks = async ({
     const collectionWhere = {
       ...(search
         ? {
-            OR: [
-              { title: { contains: search, mode: 'insensitive' } },
-              { author: { contains: search, mode: 'insensitive' } },
-              { description: { contains: search, mode: 'insensitive' } },
-              {
-                books: {
-                  some: {
-                    OR: [
-                      { title: { contains: search, mode: 'insensitive' } },
-                      { author: { contains: search, mode: 'insensitive' } },
-                    ],
-                  },
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { author: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+            {
+              books: {
+                some: {
+                  OR: [
+                    { title: { contains: search, mode: 'insensitive' } },
+                    { author: { contains: search, mode: 'insensitive' } },
+                  ],
                 },
               },
-            ],
-          }
+            },
+          ],
+        }
         : {}),
       books: {
         some: {
@@ -635,7 +669,8 @@ export const getBookById = async (id) => {
     select: bookSelect,
   });
 
-  if (!book) {
+  if (!book)
+  {
     throw new AppError('Book not found', 404);
   }
 
@@ -648,7 +683,8 @@ export const getBookBySlug = async (slug) => {
     select: bookSelect,
   });
 
-  if (!book) {
+  if (!book)
+  {
     throw new AppError('Book not found', 404);
   }
 
@@ -659,7 +695,8 @@ export const createBook = async (payload, files, uploadedById) => {
   await ensureCategoryExists(payload.categoryId);
   const collection = await ensureCollectionExists(payload.collectionId);
 
-  if (collection && !payload.slug) {
+  if (collection && !payload.slug)
+  {
     payload.slug = slugify(
       payload.volumeNumber
         ? `${collection.title} ${payload.title} volume ${payload.volumeNumber}`
@@ -669,7 +706,15 @@ export const createBook = async (payload, files, uploadedById) => {
 
   const data = buildBookData(payload);
 
-  if (!data.slug) {
+  // if creating a volume under an existing collection and no author provided,
+  // default the book author to the collection author to avoid schema errors
+  if (!data.author && collection && collection.author)
+  {
+    data.author = collection.author;
+  }
+
+  if (!data.slug)
+  {
     throw new AppError('Book slug could not be generated', 400);
   }
 
@@ -700,13 +745,16 @@ export const createBook = async (payload, files, uploadedById) => {
     select: bookSelect,
   });
 
-  if (files?.pdf?.[0]) {
-    try {
+  if (files?.pdf?.[0])
+  {
+    try
+    {
       const uploadedPdf = await uploadPdfToSupabase(files.pdf[0], book.id);
       const manualPages = data.pages ?? cleanNullableInt(payload.pages);
       const pageCount = await resolvePdfPageCount(files.pdf[0].buffer, manualPages);
 
-      if (pageCount === null) {
+      if (pageCount === null)
+      {
         console.warn(
           `Could not detect page count for book ${book.id}; upload completed without pages.`,
         );
@@ -722,7 +770,8 @@ export const createBook = async (payload, files, uploadedById) => {
           processingStatus: 'READY',
         },
       });
-    } catch (error) {
+    } catch (error)
+    {
       await prisma.book.update({
         where: { id: book.id },
         data: { processingStatus: 'FAILED' },
@@ -744,11 +793,13 @@ export const updateBook = async (id, payload, files) => {
     where: { id },
   });
 
-  if (!existingBook) {
+  if (!existingBook)
+  {
     throw new AppError('Book not found', 404);
   }
 
-  if (payload.categoryId && payload.categoryId !== existingBook.categoryId) {
+  if (payload.categoryId && payload.categoryId !== existingBook.categoryId)
+  {
     await ensureCategoryExists(payload.categoryId);
   }
 
@@ -756,12 +807,12 @@ export const updateBook = async (id, payload, files) => {
     payload.collectionId === undefined ? existingBook.collectionId : payload.collectionId;
   const collection = await ensureCollectionExists(nextCollectionId);
 
-  if (collection && !payload.slug && (payload.title || payload.volumeNumber)) {
+  if (collection && !payload.slug && (payload.title || payload.volumeNumber))
+  {
     payload.slug = slugify(
       (payload.volumeNumber ?? existingBook.volumeNumber)
-        ? `${collection.title} ${payload.title ?? existingBook.title} volume ${
-            payload.volumeNumber ?? existingBook.volumeNumber
-          }`
+        ? `${collection.title} ${payload.title ?? existingBook.title} volume ${payload.volumeNumber ?? existingBook.volumeNumber
+        }`
         : `${collection.title} ${payload.title ?? existingBook.title}`,
     );
   }
@@ -793,18 +844,22 @@ export const updateBook = async (id, payload, files) => {
     : {};
   Object.assign(data, buildBookData(payload, { ...uploadedCover, ...uploadedPdf }, existingBook));
 
-  if (files?.pdf?.[0]) {
+  if (files?.pdf?.[0])
+  {
     const manualPages =
       data.pages !== undefined ? data.pages : existingBook.pages;
     const pageCount = await resolvePdfPageCount(files.pdf[0].buffer, manualPages);
 
-    if (pageCount !== null) {
+    if (pageCount !== null)
+    {
       data.pages = pageCount;
-    } else {
+    } else
+    {
       console.warn(
         `Could not detect page count for book ${id}; upload completed without pages.`,
       );
-      if (data.pages === undefined) {
+      if (data.pages === undefined)
+      {
         data.pages = null;
       }
     }
@@ -821,10 +876,10 @@ export const updateBook = async (id, payload, files) => {
   await Promise.all([
     data.coverImagePublicId
       ? deleteCloudinaryFile({
-          publicId: existingBook.coverImagePublicId,
-          url: existingBook.coverImage,
-          resourceType: 'image',
-        })
+        publicId: existingBook.coverImagePublicId,
+        url: existingBook.coverImage,
+        resourceType: 'image',
+      })
       : undefined,
     data.filePublicId
       ? shouldDeletePreviousPdf(existingBook, data.filePublicId)
@@ -846,7 +901,8 @@ export const deleteBook = async (id) => {
     where: { id },
   });
 
-  if (!book) {
+  if (!book)
+  {
     throw new AppError('Book not found', 404);
   }
 
@@ -870,15 +926,18 @@ export const getBookPdfSource = async (id) => {
     },
   });
 
-  if (!book) {
+  if (!book)
+  {
     throw new AppError('Book not found', 404);
   }
 
-  if (!book.isPublished) {
+  if (!book.isPublished)
+  {
     throw new AppError('You are not authorized to read this book', 403);
   }
 
-  if (!book.filePublicId && !book.fileUrl) {
+  if (!book.filePublicId && !book.fileUrl)
+  {
     throw new AppError('No readable PDF is available for this book yet', 404);
   }
 
@@ -899,11 +958,13 @@ export const registerBookDownload = async (id) => {
     select: { id: true, fileUrl: true, filePublicId: true },
   });
 
-  if (!existingBook) {
+  if (!existingBook)
+  {
     throw new AppError('Book not found', 404);
   }
 
-  if (!existingBook.fileUrl && !existingBook.filePublicId) {
+  if (!existingBook.fileUrl && !existingBook.filePublicId)
+  {
     throw new AppError('PDF file is not available for this book', 404);
   }
 

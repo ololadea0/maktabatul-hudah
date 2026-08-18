@@ -44,13 +44,16 @@ export default function AdminUpload() {
   const { items: collections } = useSelector((state) => state.collections);
   const { selectedBook, selectedStatus } = useSelector((state) => state.books);
   const [form, setForm] = useState(initialForm);
-  const [bookType, setBookType] = useState(defaultCollectionId ? "volume" : "standalone");
+  const [bookType, setBookType] = useState(
+    defaultCollectionId ? "volume" : "standalone",
+  );
   const [collectionMode, setCollectionMode] = useState("existing");
   const [newCollection, setNewCollection] = useState({
     title: "",
     author: "",
     language: "English",
     description: "",
+    about: "",
   });
   const [pdfFile, setPdfFile] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
@@ -125,7 +128,8 @@ export default function AdminUpload() {
     const data = new FormData();
     const payload = {
       ...form,
-      collectionId: bookType === "volume" ? resolvedCollectionId || form.collectionId : "",
+      collectionId:
+        bookType === "volume" ? resolvedCollectionId || form.collectionId : "",
     };
 
     Object.entries(payload).forEach(([key, value]) => {
@@ -151,9 +155,12 @@ export default function AdminUpload() {
     event.preventDefault();
     if (isSubmitting) return;
     const isVolume = bookType === "volume";
+    const missingAuthor =
+      !form.author &&
+      !(isVolume && collectionMode === "new" && newCollection.author);
     if (
       !form.title ||
-      !form.author ||
+      missingAuthor ||
       !form.categoryId ||
       (!editingId && !pdfFile) ||
       (isVolume && collectionMode === "existing" && !form.collectionId) ||
@@ -176,11 +183,19 @@ export default function AdminUpload() {
         Object.entries(newCollection).forEach(([key, value]) => {
           if (value) collectionData.append(key, value);
         });
-        const created = await dispatch(createCollection(collectionData)).unwrap();
+        const created = await dispatch(
+          createCollection(collectionData),
+        ).unwrap();
         resolvedCollectionId = created.data?.collection?.id;
       }
 
       const payload = buildFormData(publish, resolvedCollectionId);
+      // If adding a volume to an existing collection, avoid sending collection-level fields
+      if (isVolume && (collectionMode === "existing" || resolvedCollectionId)) {
+        payload.delete("about");
+        payload.delete("author");
+        payload.delete("description");
+      }
       if (editingId) {
         await dispatch(updateBook({ id: editingId, payload })).unwrap();
         toast.success(publish ? "Book published" : "Draft saved");
@@ -296,7 +311,9 @@ export default function AdminUpload() {
                   </span>
                   <select
                     value={form.collectionId}
-                    onChange={(event) => setField("collectionId", event.target.value)}
+                    onChange={(event) =>
+                      setField("collectionId", event.target.value)
+                    }
                     className="w-full rounded-xl border bg-white px-3 py-2.5 text-sm outline-none"
                     style={{ borderColor: "rgba(15, 118, 110, 0.2)" }}
                   >
@@ -313,7 +330,10 @@ export default function AdminUpload() {
                   <input
                     value={newCollection.title}
                     onChange={(event) =>
-                      setNewCollection((current) => ({ ...current, title: event.target.value }))
+                      setNewCollection((current) => ({
+                        ...current,
+                        title: event.target.value,
+                      }))
                     }
                     placeholder="Collection title"
                     className="rounded-xl border bg-white px-3 py-2.5 text-sm outline-none"
@@ -321,10 +341,35 @@ export default function AdminUpload() {
                   <input
                     value={newCollection.author}
                     onChange={(event) =>
-                      setNewCollection((current) => ({ ...current, author: event.target.value }))
+                      setNewCollection((current) => ({
+                        ...current,
+                        author: event.target.value,
+                      }))
                     }
                     placeholder="Collection author"
                     className="rounded-xl border bg-white px-3 py-2.5 text-sm outline-none"
+                  />
+                  <textarea
+                    value={newCollection.description}
+                    onChange={(event) =>
+                      setNewCollection((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }))
+                    }
+                    placeholder="Collection description"
+                    className="sm:col-span-2 w-full rounded-xl border bg-white px-3 py-2.5 text-sm outline-none resize-none"
+                  />
+                  <textarea
+                    value={newCollection.about}
+                    onChange={(event) =>
+                      setNewCollection((current) => ({
+                        ...current,
+                        about: event.target.value,
+                      }))
+                    }
+                    placeholder="About the collection"
+                    className="sm:col-span-2 w-full rounded-xl border bg-white px-3 py-2.5 text-sm outline-none resize-none"
                   />
                 </div>
               )}
@@ -345,18 +390,20 @@ export default function AdminUpload() {
               />
             </div>
 
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                Author <span className="text-red-500">*</span>
-              </label>
-              <input
-                value={form.author}
-                onChange={(event) => setField("author", event.target.value)}
-                placeholder="e.g. Imam An-Nawawi"
-                className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                style={{ borderColor: "rgba(15, 118, 110, 0.2)" }}
-              />
-            </div>
+            {bookType !== "volume" ? (
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  Author <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={form.author}
+                  onChange={(event) => setField("author", event.target.value)}
+                  placeholder="e.g. Imam An-Nawawi"
+                  className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  style={{ borderColor: "rgba(15, 118, 110, 0.2)" }}
+                />
+              </div>
+            ) : null}
 
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
@@ -453,7 +500,8 @@ export default function AdminUpload() {
                 style={{ borderColor: "rgba(15, 118, 110, 0.2)" }}
               />
               <p className="mt-1 text-[11px] text-gray-400">
-                Optional. Used as a fallback if the PDF page count cannot be detected automatically.
+                Optional. Used as a fallback if the PDF page count cannot be
+                detected automatically.
               </p>
             </div>
 
@@ -504,34 +552,38 @@ export default function AdminUpload() {
               />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                Description
-              </label>
-              <textarea
-                rows="3"
-                value={form.description}
-                onChange={(event) =>
-                  setField("description", event.target.value)
-                }
-                placeholder="Brief description of the book content..."
-                className="w-full resize-none rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                style={{ borderColor: "rgba(15, 118, 110, 0.2)" }}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                About the Book
-              </label>
-              <textarea
-                rows="3"
-                value={form.about}
-                onChange={(event) => setField("about", event.target.value)}
-                placeholder="Detailed information about the book..."
-                className="w-full resize-none rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                style={{ borderColor: "rgba(15, 118, 110, 0.2)" }}
-              />
-            </div>
+            {bookType !== "volume" ? (
+              <>
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    Description
+                  </label>
+                  <textarea
+                    rows="3"
+                    value={form.description}
+                    onChange={(event) =>
+                      setField("description", event.target.value)
+                    }
+                    placeholder="Brief description of the book content..."
+                    className="w-full resize-none rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                    style={{ borderColor: "rgba(15, 118, 110, 0.2)" }}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    About the Book
+                  </label>
+                  <textarea
+                    rows="3"
+                    value={form.about}
+                    onChange={(event) => setField("about", event.target.value)}
+                    placeholder="Detailed information about the book..."
+                    className="w-full resize-none rounded-xl border px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                    style={{ borderColor: "rgba(15, 118, 110, 0.2)" }}
+                  />
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
 

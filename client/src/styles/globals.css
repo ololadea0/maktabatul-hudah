@@ -24,6 +24,16 @@ body.reader-active {
   touch-action: pan-y pinch-zoom;
 }
 
+/* Ensure the reader container occupies full viewport width and allows horizontal panning */
+.reader-shell {
+  width: 100vw;
+  max-width: 100vw;
+}
+
+.reader-shell section {
+  overflow-x: auto;
+}
+
 #root {
   min-height: 100%;
 }

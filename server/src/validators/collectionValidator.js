@@ -29,6 +29,11 @@ export const createCollectionValidator = [
     .trim()
     .isLength({ max: 2000 })
     .withMessage('Description must be at most 2000 characters long'),
+  body('about')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 4000 })
+    .withMessage('About must be at most 4000 characters long'),
   body('language')
     .optional({ nullable: true })
     .trim()
@@ -56,6 +61,11 @@ export const updateCollectionValidator = [
     .trim()
     .isLength({ max: 2000 })
     .withMessage('Description must be at most 2000 characters long'),
+  body('about')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 4000 })
+    .withMessage('About must be at most 4000 characters long'),
   body('language')
     .optional({ nullable: true })
     .trim()

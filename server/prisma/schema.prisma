@@ -68,6 +68,7 @@ model BookCollection {
   title       String
   author      String?
   description String?
+  about       String?
   language    String?
   coverImage  String?
   coverImagePublicId String?

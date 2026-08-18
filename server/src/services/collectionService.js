@@ -7,6 +7,7 @@ const collectionSelect = {
   title: true,
   author: true,
   description: true,
+  about: true,
   language: true,
   coverImage: true,
   coverImagePublicId: true,
@@ -51,7 +52,8 @@ const normalizeCollection = (collection) => ({
 
 const uploadCollectionCover = (file) =>
   new Promise((resolve, reject) => {
-    if (!file) {
+    if (!file)
+    {
       resolve({});
       return;
     }
@@ -63,7 +65,8 @@ const uploadCollectionCover = (file) =>
         allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
       },
       (error, result) => {
-        if (error) {
+        if (error)
+        {
           reject(error);
           return;
         }
@@ -79,7 +82,8 @@ const uploadCollectionCover = (file) =>
   });
 
 const deleteCollectionCover = async (publicId) => {
-  if (publicId) {
+  if (publicId)
+  {
     await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
   }
 };
@@ -89,29 +93,29 @@ export const getCollections = async ({ search, includeUnpublished = false } = {}
     where: {
       ...(search
         ? {
-            OR: [
-              { title: { contains: search, mode: 'insensitive' } },
-              { author: { contains: search, mode: 'insensitive' } },
-              { description: { contains: search, mode: 'insensitive' } },
-              {
-                books: {
-                  some: {
-                    title: { contains: search, mode: 'insensitive' },
-                  },
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { author: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+            {
+              books: {
+                some: {
+                  title: { contains: search, mode: 'insensitive' },
                 },
               },
-            ],
-          }
+            },
+          ],
+        }
         : {}),
       ...(includeUnpublished
         ? {}
         : {
-            books: {
-              some: {
-                isPublished: true,
-              },
+          books: {
+            some: {
+              isPublished: true,
             },
-          }),
+          },
+        }),
     },
     orderBy: { title: 'asc' },
     select: collectionSelect,
@@ -133,7 +137,8 @@ export const getCollectionById = async (id, { includeUnpublished = false } = {})
     },
   });
 
-  if (!collection) {
+  if (!collection)
+  {
     throw new AppError('Collection not found', 404);
   }
 
@@ -162,6 +167,7 @@ export const createCollection = async (payload, files) => {
       title: payload.title,
       author: payload.author || null,
       description: payload.description || null,
+      about: payload.about || null,
       language: payload.language || null,
       coverImage: uploadedCover.coverImage || payload.coverImage || null,
       coverImagePublicId: uploadedCover.coverImagePublicId || null,
@@ -175,7 +181,8 @@ export const createCollection = async (payload, files) => {
 export const updateCollection = async (id, payload, files) => {
   const existing = await prisma.bookCollection.findUnique({ where: { id } });
 
-  if (!existing) {
+  if (!existing)
+  {
     throw new AppError('Collection not found', 404);
   }
 
@@ -192,6 +199,10 @@ export const updateCollection = async (id, payload, files) => {
         Object.prototype.hasOwnProperty.call(payload, 'description')
           ? payload.description || null
           : existing.description,
+      about:
+        Object.prototype.hasOwnProperty.call(payload, 'about')
+          ? payload.about || null
+          : existing.about,
       language:
         Object.prototype.hasOwnProperty.call(payload, 'language')
           ? payload.language || null
@@ -202,7 +213,8 @@ export const updateCollection = async (id, payload, files) => {
     select: collectionSelect,
   });
 
-  if (uploadedCover.coverImagePublicId) {
+  if (uploadedCover.coverImagePublicId)
+  {
     await deleteCollectionCover(existing.coverImagePublicId);
   }
 
@@ -212,7 +224,8 @@ export const updateCollection = async (id, payload, files) => {
 export const deleteCollection = async (id) => {
   const existing = await prisma.bookCollection.findUnique({ where: { id } });
 
-  if (!existing) {
+  if (!existing)
+  {
     throw new AppError('Collection not found', 404);
   }
 
