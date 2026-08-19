@@ -45,6 +45,7 @@ const minZoom = 0.5;
 const maxZoom = 2.5;
 const zoomStep = 0.1;
 const readerGutter = 16;
+const mobileViewportQuery = "(max-width: 900px)";
 
 export default function BookReader({ bookId, onBack }) {
   const dispatch = useDispatch();
@@ -68,16 +69,48 @@ export default function BookReader({ bookId, onBack }) {
   const [docError, setDocError] = useState(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const didSetMobileFit = useRef(false);
-  const [forceMobileIframe, setForceMobileIframe] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const agent = navigator.userAgent || "";
+    const isMobileAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(agent);
+    if (typeof window.matchMedia === "function") {
+      return isMobileAgent || window.matchMedia(mobileViewportQuery).matches;
+    }
+    return isMobileAgent || window.innerWidth <= 900;
+  });
+  const [forceNativePdfViewer, setForceNativePdfViewer] = useState(false);
 
-  // Determine whether to render the PDF inside an iframe for small/mobile
-  // viewports. This avoids PDF.js/canvas rendering issues in some webviews.
-  const isMobileIframe =
-    forceMobileIframe ||
-    (containerSize.width ||
-      window.visualViewport?.width ||
-      window.innerWidth ||
-      0) < 640;
+  // A single source of truth for the rendering mode.
+  // Desktop always uses PDF.js; mobile must open the PDF in the browser.
+  const useNativePdfViewer = forceNativePdfViewer || isMobileViewport;
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
+      return undefined;
+    }
+
+    const mediaQueryList = window.matchMedia(mobileViewportQuery);
+    const handleChange = (event) => {
+      const agent = navigator.userAgent || "";
+      const isMobileAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(agent);
+      setIsMobileViewport(isMobileAgent || event.matches);
+    };
+
+    const agent = navigator.userAgent || "";
+    const isMobileAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(agent);
+    setIsMobileViewport(isMobileAgent || mediaQueryList.matches);
+
+    if (typeof mediaQueryList.addEventListener === "function") {
+      mediaQueryList.addEventListener("change", handleChange);
+      return () => mediaQueryList.removeEventListener("change", handleChange);
+    }
+
+    mediaQueryList.addListener(handleChange);
+    return () => mediaQueryList.removeListener(handleChange);
+  }, []);
 
   useEffect(() => {
     // Activate reader mode and lock background scroll using position:fixed
@@ -233,11 +266,14 @@ export default function BookReader({ bookId, onBack }) {
       await Promise.resolve();
       if (cancelled) return;
       setPdfReady(false);
-      // If we're using an iframe on mobile, skip loading PDF.js to avoid
-      // worker/transport conflicts on some webviews. The iframe will load
-      // the PDF directly from `reader.pdfUrl` and allow native scrolling.
-      if (isMobileIframe) {
+      // Mobile uses the browser's built-in PDF handler, never initializing
+      // PDF.js or its worker, which avoids the JBIG2/mobile issue entirely.
+      if (useNativePdfViewer) {
         setPdfReady(true);
+        setDocState("ready");
+        if (typeof window !== "undefined" && reader.pdfUrl) {
+          window.open(reader.pdfUrl, "_blank", "noopener,noreferrer");
+        }
         return;
       }
 
@@ -258,9 +294,27 @@ export default function BookReader({ bookId, onBack }) {
       });
       loadingTaskRef.current = loadingTask;
 
+      console.log("PDFJS load start", {
+        pdfUrl: reader.pdfUrl,
+        width: containerSize.width,
+        height: containerSize.height,
+        innerWidth: window.innerWidth,
+        visualWidth: window.visualViewport?.width,
+        devicePixelRatio: window.devicePixelRatio,
+      });
+
       const pdfDocument = await loadingTask.promise;
       if (cancelled) return;
       pdfDocumentRef.current = pdfDocument;
+      console.log("PDFJS document loaded", {
+        numPages: pdfDocument.numPages,
+        pdfUrl: reader.pdfUrl,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        devicePixelRatio: window.devicePixelRatio,
+        containerWidth: containerSize.width,
+        containerHeight: containerSize.height,
+      });
       dispatch(setTotalPages(pdfDocument.numPages));
       setPdfReady(true);
       setDocState("loaded");
@@ -287,7 +341,7 @@ export default function BookReader({ bookId, onBack }) {
       cancelled = true;
       loadingTaskRef.current?.destroy();
     };
-  }, [dispatch, loadReader, reader.pdfUrl]);
+  }, [dispatch, loadReader, reader.pdfUrl, useNativePdfViewer]);
 
   useEffect(() => {
     if (!reader.expiresAt) return undefined;
@@ -390,6 +444,16 @@ export default function BookReader({ bookId, onBack }) {
 
       const page = await tryGetPage(reader.currentPage);
       if (!page) return; // already reloaded via loadReader()
+      console.log("PDFJS page render start", {
+        pageNumber: reader.currentPage,
+        fitMode: reader.fitMode,
+        zoom: reader.zoom,
+        rotation: reader.rotation,
+        containerWidth: containerSize.width,
+        containerHeight: containerSize.height,
+        viewportWidth: window.innerWidth,
+        devicePixelRatio: window.devicePixelRatio,
+      });
       const baseViewport = page.getViewport({
         scale: 1,
         rotation: reader.rotation,
@@ -415,9 +479,23 @@ export default function BookReader({ bookId, onBack }) {
       const viewport = page.getViewport({ scale, rotation: reader.rotation });
       const canvas = canvasRef.current;
       const context = canvas.getContext("2d", { alpha: false });
-      const outputScale = window.devicePixelRatio || 1;
+      const outputScale = Math.min(1.5, window.devicePixelRatio || 1);
 
       if (renderId !== renderSequenceRef.current) return;
+
+      console.log("PDFJS canvas sizing", {
+        pageNumber: reader.currentPage,
+        baseViewportWidth: baseViewport.width,
+        baseViewportHeight: baseViewport.height,
+        targetScale: scale,
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
+        devicePixelRatio: window.devicePixelRatio,
+        canvasWidth: canvas?.width,
+        canvasHeight: canvas?.height,
+        canvasCssWidth: canvas?.clientWidth,
+        canvasCssHeight: canvas?.clientHeight,
+      });
 
       canvas.width = Math.floor(viewport.width * outputScale);
       canvas.height = Math.floor(viewport.height * outputScale);
@@ -442,7 +520,22 @@ export default function BookReader({ bookId, onBack }) {
           outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null,
       });
 
-      await renderTaskRef.current.promise;
+      console.log("PDFJS render task created", {
+        pageNumber: reader.currentPage,
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+        outputScale,
+        transform:
+          outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null,
+      });
+
+      const renderTimeout = new Promise((_, reject) => {
+        window.setTimeout(() => {
+          reject(new Error("PDF page render timed out"));
+        }, 30000);
+      });
+
+      await Promise.race([renderTaskRef.current.promise, renderTimeout]);
       page.cleanup?.();
     } catch (error) {
       if (error?.name !== "RenderingCancelledException") {
@@ -791,13 +884,13 @@ export default function BookReader({ bookId, onBack }) {
       {/* Floating fallback FAB when header/footer aren't visible (helps when header/footer fail to render) */}
       <FloatingHeaderFallback
         reader={reader}
-        isMobile={isMobileIframe}
+        isMobile={useNativePdfViewer}
         docState={docState}
-        onUseIframe={() => setForceMobileIframe(true)}
+        onUseIframe={() => setForceNativePdfViewer(true)}
       />
 
       {docState === "error" ? (
-        isMobileIframe ? (
+        useNativePdfViewer ? (
           <div
             style={{
               position: "fixed",
@@ -869,17 +962,39 @@ export default function BookReader({ bookId, onBack }) {
             reader.fitMode === "page" ? "items-center" : "items-start"
           } overflow-x-auto`}
         >
-          {isMobileIframe ? (
-            <div className="w-full">
-              {reader.rendering ? <PageSkeleton /> : null}
-              <iframe
-                title={`Book ${reader.book?.title || "PDF"}`}
-                src={reader.pdfUrl}
-                ref={canvasRef}
-                className="mx-auto w-full bg-white"
-                style={{ height: Math.max(containerSize.height, 640) }}
-                sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-              />
+          {useNativePdfViewer ? (
+            <div className="flex h-full w-full items-center justify-center bg-white px-4 text-center text-neutral-900">
+              <div className="max-w-md rounded-2xl border border-neutral-200 bg-neutral-50 p-6 shadow-sm">
+                <p className="text-lg font-semibold">
+                  Open this PDF in your browser
+                </p>
+                <p className="mt-2 text-sm text-neutral-600">
+                  Mobile devices render PDFs more reliably in the system browser
+                  than inside the app.
+                </p>
+                <div className="mt-5 flex justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.open(
+                        reader.pdfUrl,
+                        "_blank",
+                        "noopener,noreferrer",
+                      )
+                    }
+                    className="rounded-md bg-teal-600 px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    Open PDF
+                  </button>
+                  <a
+                    href={reader.pdfUrl}
+                    download
+                    className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900"
+                  >
+                    Download
+                  </a>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="w-full max-w-4xl">
@@ -1259,23 +1374,44 @@ function PageView({
       const canvas = canvasRefLocal.current;
       if (!canvas) throw new Error("Canvas not available");
 
+      console.log("PageView sizing", {
+        pageNumber,
+        containerWidth,
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
+        devicePixelRatio: window.devicePixelRatio,
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+        canvasCssWidth: canvas.clientWidth,
+        canvasCssHeight: canvas.clientHeight,
+      });
+
       const context = canvas.getContext("2d", { alpha: false });
 
-      // Cap pixel count to avoid huge memory allocations
+      // Cap pixel count to avoid huge memory allocations while keeping the CSS
+      // size correct. Internal raster resolution is reduced when needed.
       const maxPixels = 2200000; // ~2.2MP
-      let scaleForPixels = outputScale;
       const desiredPixels =
-        Math.floor(viewport.width * outputScale) *
-        Math.floor(viewport.height * outputScale);
+        viewport.width * viewport.height * outputScale * outputScale;
+      let scaleForPixels = outputScale;
       if (desiredPixels > maxPixels) {
+        const targetRatio = Math.sqrt(maxPixels / desiredPixels);
         scaleForPixels = Math.max(
-          1,
-          Math.floor(Math.sqrt(maxPixels / (viewport.width * viewport.height))),
+          0.5,
+          Math.min(outputScale, outputScale * targetRatio),
         );
       }
 
-      canvas.width = Math.floor(viewport.width * scaleForPixels);
-      canvas.height = Math.floor(viewport.height * scaleForPixels);
+      const renderWidth = Math.max(
+        1,
+        Math.round(viewport.width * scaleForPixels),
+      );
+      const renderHeight = Math.max(
+        1,
+        Math.round(viewport.height * scaleForPixels),
+      );
+      canvas.width = renderWidth;
+      canvas.height = renderHeight;
       const displayWidth = Math.min(Math.floor(viewport.width), availableWidth);
       canvas.style.width = `${displayWidth}px`;
       canvas.style.height = `${Math.floor((displayWidth / viewport.width) * viewport.height)}px`;
@@ -1295,7 +1431,13 @@ function PageView({
             : null,
       });
 
-      await renderTaskLocal.current.promise;
+      const pageRenderTimeout = new Promise((_, reject) => {
+        window.setTimeout(() => {
+          reject(new Error("PDF page render timed out"));
+        }, 30000);
+      });
+
+      await Promise.race([renderTaskLocal.current.promise, pageRenderTimeout]);
       page.cleanup?.();
       setStatus("rendered");
       dispatch(setRendering(false));
