@@ -69,12 +69,15 @@ export default function BookReader({ bookId, onBack }) {
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const didSetMobileFit = useRef(false);
   const [forceMobileIframe, setForceMobileIframe] = useState(false);
-  const didOpenInBrowserRef = useRef(false);
 
   // Determine whether to render the PDF inside an iframe for small/mobile
   // viewports. This avoids PDF.js/canvas rendering issues in some webviews.
-  // Force iframe-based viewer for all viewports to avoid PDF.js worker/codec issues
-  const isMobileIframe = true;
+  const isMobileIframe =
+    forceMobileIframe ||
+    (containerSize.width ||
+      window.visualViewport?.width ||
+      window.innerWidth ||
+      0) < 640;
 
   useEffect(() => {
     // Activate reader mode and lock background scroll using position:fixed
@@ -218,26 +221,6 @@ export default function BookReader({ bookId, onBack }) {
       dispatch(resetReader());
     };
   }, [dispatch, loadReader]);
-
-  // If the PDF url is available, open it in the browser's native viewer
-  // and exit the in-app reader. This forces the browser view instead of
-  // attempting to render via pdf.js which is causing issues.
-  useEffect(() => {
-    if (!reader.pdfUrl || didOpenInBrowserRef.current) return undefined;
-    didOpenInBrowserRef.current = true;
-    try {
-      window.open(reader.pdfUrl, "_blank");
-    } catch (e) {
-      // ignore
-    }
-    // Close the in-app reader if an onBack handler was provided.
-    try {
-      onBack?.();
-    } catch (e) {
-      // ignore
-    }
-    return undefined;
-  }, [reader.pdfUrl, onBack]);
 
   useEffect(() => {
     if (!reader.pdfUrl) return undefined;
