@@ -65,12 +65,26 @@ const bookSelect = {
 const isSupabasePdfPath = (path) => path?.startsWith('books/');
 
 const getBookPdfUrl = async (book) => {
-  if (isSupabasePdfPath(book.filePublicId))
+  try
   {
-    return createSignedObjectUrl(book.filePublicId);
-  }
+    if (isSupabasePdfPath(book.filePublicId))
+    {
+      return await createSignedObjectUrl(book.filePublicId);
+    }
 
-  return book.fileUrl;
+    return book.fileUrl;
+  } catch (error)
+  {
+    console.warn('Unable to generate signed PDF URL for book:', {
+      bookId: book?.id,
+      title: book?.title,
+      filePublicId: book?.filePublicId,
+      fileUrl: book?.fileUrl,
+      error: error.message,
+    });
+
+    return book.fileUrl || null;
+  }
 };
 
 const normalizeBook = async (book) => ({
